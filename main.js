@@ -108,11 +108,11 @@ function createTray() {
   const fs = require('fs');
   let trayIcon = null;
   
-  // Check for icon.ico in the root folder first (where your file is)
-  const rootIconPath = path.join(__dirname, 'icon.ico');
+  // Check for icon.png in the root folder first (where your file is)
+  const rootIconPath = path.join(__dirname, 'icon.png');
   
   if (fs.existsSync(rootIconPath)) {
-    // Use the icon.ico file you have in the root
+    // Use the icon.png file you have in the root
     trayIcon = nativeImage.createFromPath(rootIconPath);
     // Resize for tray (16x16 is standard for Windows tray)
     trayIcon = trayIcon.resize({ width: 16, height: 16 });
@@ -173,12 +173,12 @@ function getAppIcon() {
   
   if (isDev) {
     // In development, look for icon in root folder
-    return path.join(__dirname, 'icon.ico');
+    return path.join(__dirname, 'icon.png');
   } else {
     // In production, the icon will be embedded by electron-builder
     // But we can still specify a fallback
     if (process.platform === 'win32') {
-      return path.join(__dirname, 'icon.ico');
+      return path.join(__dirname, 'icon.png');
     } else if (process.platform === 'darwin') {
       return path.join(__dirname, 'icon.icns');
     } else {

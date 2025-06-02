@@ -1013,3 +1013,300 @@ h1 {
 .edi-payload::-webkit-scrollbar-thumb:hover {
     background: var(--gray-500);
 }
+
+
+/* Floating Sidebar Toggle - Enhanced with graceful animations */
+.floating-sidebar-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background: var(--primary-blue);
+    color: var(--white);
+    border: none;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Enhanced animation properties */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(100px) scale(0.8);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy easing */
+}
+
+.floating-sidebar-toggle:hover {
+    background: var(--secondary-blue);
+    transform: translateX(0) scale(1.05);
+    box-shadow: var(--shadow-xl);
+    transition: all 0.2s ease-out;
+}
+
+/* Show floating button when sidebar is collapsed - Enhanced */
+.sidebar.collapsed ~ * .floating-sidebar-toggle,
+.app-container.sidebar-collapsed .floating-sidebar-toggle {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateX(0) scale(1) !important;
+    /* Delayed appearance for graceful timing */
+    transition-delay: 0.3s;
+}
+
+/* Hide floating button when sidebar is visible - Enhanced */
+.sidebar:not(.collapsed) ~ * .floating-sidebar-toggle,
+.app-container:not(.sidebar-collapsed) .floating-sidebar-toggle {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateX(100px) scale(0.8) !important;
+    transition-delay: 0s; /* Immediate hiding when sidebar appears */
+}
+
+/* Enhanced app container transitions */
+.app-container {
+    display: flex;
+    min-height: 100vh;
+    padding-right: 400px;
+    transition: padding-right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Smooth easing */
+}
+
+.app-container.sidebar-collapsed {
+    padding-right: 0;
+}
+
+/* Sidebar Styles - Enhanced with fluid animations */
+.sidebar {
+    width: 400px;
+    background: var(--white);
+    border-left: 1px solid var(--gray-200);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 100;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    
+    /* Enhanced transform and opacity animations */
+    transform: translateX(0);
+    opacity: 1;
+    visibility: visible;
+    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                opacity 0.4s ease-out,
+                visibility 0.4s ease-out,
+                box-shadow 0.4s ease-out;
+}
+
+.sidebar.collapsed {
+    transform: translateX(100%);
+    opacity: 0;
+    visibility: hidden;
+    box-shadow: none;
+}
+
+/* Enhanced sidebar content fade during transitions */
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    
+    /* Subtle content fade */
+    opacity: 1;
+    transition: opacity 0.3s ease-out;
+}
+
+.sidebar.collapsed .sidebar-content {
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+}
+
+/* Enhanced sidebar header during transitions */
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--gray-50);
+    flex-shrink: 0;
+    
+    /* Subtle header fade */
+    opacity: 1;
+    transition: opacity 0.3s ease-out;
+}
+
+.sidebar.collapsed .sidebar-header {
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+}
+
+/* Enhanced button animations for sidebar toggle */
+.sidebar-toggle {
+    background: var(--gray-200) !important;
+    color: var(--gray-700) !important;
+    transition: all 0.2s ease-out;
+}
+
+.sidebar-toggle:hover {
+    background: var(--gray-300) !important;
+    transform: translateY(-1px);
+}
+
+/* Floating button pulse animation when first appearing */
+@keyframes floatingButtonAppear {
+    0% {
+        opacity: 0;
+        transform: translateX(100px) scale(0.5) rotate(-90deg);
+    }
+    50% {
+        opacity: 0.8;
+        transform: translateX(-10px) scale(1.1) rotate(0deg);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1) rotate(0deg);
+    }
+}
+
+/* Apply appear animation when sidebar is first collapsed */
+.sidebar.collapsed ~ * .floating-sidebar-toggle:not(.no-animation),
+.app-container.sidebar-collapsed .floating-sidebar-toggle:not(.no-animation) {
+    animation: floatingButtonAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation-delay: 0.3s;
+}
+
+/* Gentle hover animations for floating button */
+.floating-sidebar-toggle:hover {
+    animation: none; /* Stop appear animation on hover */
+}
+
+/* Add a gentle shadow pulse when floating button is active */
+@keyframes shadowPulse {
+    0%, 100% {
+        box-shadow: var(--shadow-lg);
+    }
+    50% {
+        box-shadow: 0 8px 25px rgba(30, 58, 138, 0.3);
+    }
+}
+
+.floating-sidebar-toggle:not(.sidebar.collapsed ~ *):not(.app-container.sidebar-collapsed *) {
+    animation: shadowPulse 3s ease-in-out infinite;
+    animation-delay: 1s;
+}
+
+/* Enhanced mobile responsiveness with better animations */
+@media (max-width: 1000px) {
+    .app-container {
+        flex-direction: column;
+        padding-right: 0;
+        transition: none; /* Disable padding transition on mobile */
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: 50vh;
+        position: fixed;
+        bottom: 0;
+        top: auto;
+        right: 0;
+        border-left: none;
+        border-top: 1px solid var(--gray-200);
+        
+        /* Mobile-specific slide animation */
+        transform: translateY(0);
+        transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                    opacity 0.4s ease-out,
+                    visibility 0.4s ease-out;
+    }
+    
+    .sidebar.collapsed {
+        transform: translateY(100%); /* Slide down on mobile */
+    }
+    
+    .floating-sidebar-toggle {
+        /* Adjust floating button position for mobile */
+        top: auto;
+        bottom: 20px;
+        transform: translateY(100px) scale(0.8);
+        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    .sidebar.collapsed ~ * .floating-sidebar-toggle,
+    .app-container.sidebar-collapsed .floating-sidebar-toggle {
+        transform: translateY(0) scale(1) !important;
+    }
+    
+    .sidebar:not(.collapsed) ~ * .floating-sidebar-toggle,
+    .app-container:not(.sidebar-collapsed) .floating-sidebar-toggle {
+        transform: translateY(100px) scale(0.8) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        height: 40vh;
+    }
+    
+    /* Adjust appear animation for smaller screens */
+    @keyframes floatingButtonAppearMobile {
+        0% {
+            opacity: 0;
+            transform: translateY(100px) scale(0.5);
+        }
+        50% {
+            opacity: 0.8;
+            transform: translateY(-10px) scale(1.1);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    
+    .sidebar.collapsed ~ * .floating-sidebar-toggle:not(.no-animation),
+    .app-container.sidebar-collapsed .floating-sidebar-toggle:not(.no-animation) {
+        animation: floatingButtonAppearMobile 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+}
+
+/* Add smooth transitions for main content when sidebar toggles */
+.main-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    
+    /* Subtle shift animation */
+    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Optional: Add a very subtle parallax effect to main content */
+.app-container:not(.sidebar-collapsed) .main-content {
+    transform: translateX(-5px);
+}
+
+.app-container.sidebar-collapsed .main-content {
+    transform: translateX(0);
+}
+
+/* Prevent animation class to disable specific animations when needed */
+.no-animation,
+.no-animation * {
+    animation: none !important;
+    transition: none !important;
+}

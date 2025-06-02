@@ -1,4 +1,4 @@
-// Processing Results Manager - Minimal Logging Version
+// Processing Results Manager - Complete with Enhanced Animations
 
 class ProcessingResultsManager {
     constructor() {
@@ -11,6 +11,8 @@ class ProcessingResultsManager {
         this.initializeElements();
         this.setupEventListeners();
         this.updateDisplay();
+        this.injectEnhancedAnimationStyles();
+        this.optimizeAnimations();
     }
 
     initializeElements() {
@@ -90,6 +92,124 @@ class ProcessingResultsManager {
                 this.closeEdiModal();
             }
         });
+    }
+
+    // Enhanced toggle sidebar with graceful animations
+    toggleSidebar() {
+        const appContainer = document.querySelector('.app-container');
+        if (!appContainer || !this.sidebar) {
+            return;
+        }
+        
+        // Check current state
+        const isCollapsed = this.sidebar.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            // Showing sidebar - immediate floating button hide, then show sidebar
+            this.hideFloatingButtonGracefully();
+            
+            setTimeout(() => {
+                this.sidebar.classList.remove('collapsed');
+                appContainer.classList.remove('sidebar-collapsed');
+                
+                if (this.sidebarToggle) {
+                    this.sidebarToggle.textContent = 'Hide';
+                }
+            }, 50); // Small delay to ensure floating button starts hiding first
+            
+        } else {
+            // Hiding sidebar - sidebar hides first, then floating button appears
+            this.sidebar.classList.add('collapsed');
+            appContainer.classList.add('sidebar-collapsed');
+            
+            if (this.sidebarToggle) {
+                this.sidebarToggle.textContent = 'Show';
+            }
+            
+            // Floating button will appear automatically due to CSS transitions
+            // with the built-in delay
+        }
+    }
+
+    // Add this new method to handle graceful floating button hiding
+    hideFloatingButtonGracefully() {
+        const floatingButton = this.floatingSidebarToggle || document.getElementById('floatingSidebarToggle');
+        if (floatingButton) {
+            // Add a temporary class to speed up the hiding animation
+            floatingButton.classList.add('quick-hide');
+            
+            // Remove the class after animation completes
+            setTimeout(() => {
+                floatingButton.classList.remove('quick-hide');
+            }, 200);
+        }
+    }
+
+    // Inject enhanced animation styles
+    injectEnhancedAnimationStyles() {
+        if (!document.getElementById('enhanced-sidebar-animations')) {
+            const enhancedAnimationStyles = `
+            .floating-sidebar-toggle.quick-hide {
+                opacity: 0 !important;
+                visibility: hidden !important;
+                transform: translateX(100px) scale(0.8) !important;
+                transition: all 0.2s ease-out !important;
+                transition-delay: 0s !important;
+            }
+
+            /* Enhanced staggered animation for multiple elements */
+            .sidebar-content > * {
+                transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            }
+
+            .sidebar.collapsed .sidebar-content > * {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+
+            .sidebar.collapsed .sidebar-content > *:nth-child(1) { transition-delay: 0s; }
+            .sidebar.collapsed .sidebar-content > *:nth-child(2) { transition-delay: 0.05s; }
+            .sidebar.collapsed .sidebar-content > *:nth-child(3) { transition-delay: 0.1s; }
+            .sidebar.collapsed .sidebar-content > *:nth-child(4) { transition-delay: 0.15s; }
+
+            /* Smooth appearance when sidebar shows */
+            .sidebar:not(.collapsed) .sidebar-content > * {
+                opacity: 1;
+                transform: translateX(0);
+            }
+
+            .sidebar:not(.collapsed) .sidebar-content > *:nth-child(1) { transition-delay: 0.1s; }
+            .sidebar:not(.collapsed) .sidebar-content > *:nth-child(2) { transition-delay: 0.15s; }
+            .sidebar:not(.collapsed) .sidebar-content > *:nth-child(3) { transition-delay: 0.2s; }
+            .sidebar:not(.collapsed) .sidebar-content > *:nth-child(4) { transition-delay: 0.25s; }
+            `;
+
+            const styleSheet = document.createElement('style');
+            styleSheet.id = 'enhanced-sidebar-animations';
+            styleSheet.textContent = enhancedAnimationStyles;
+            document.head.appendChild(styleSheet);
+        }
+    }
+
+    // Optimize animations for better performance
+    optimizeAnimations() {
+        if (this.sidebar) {
+            // Use will-change for better performance during animations
+            this.sidebar.style.willChange = 'transform, opacity';
+            
+            // Remove will-change after animation completes to save memory
+            this.sidebar.addEventListener('transitionend', () => {
+                this.sidebar.style.willChange = 'auto';
+            });
+        }
+        
+        if (this.floatingSidebarToggle) {
+            this.floatingSidebarToggle.style.willChange = 'transform, opacity';
+            
+            this.floatingSidebarToggle.addEventListener('transitionend', () => {
+                this.floatingSidebarToggle.style.willChange = 'auto';
+            });
+        }
     }
 
     // Get current count of results
@@ -531,30 +651,6 @@ class ProcessingResultsManager {
         URL.revokeObjectURL(url);
     }
 
-    // Toggle sidebar
-    toggleSidebar() {
-        const appContainer = document.querySelector('.app-container');
-        if (!appContainer || !this.sidebar) {
-            return;
-        }
-        
-        // Toggle sidebar collapsed class
-        this.sidebar.classList.toggle('collapsed');
-        const isCollapsed = this.sidebar.classList.contains('collapsed');
-        
-        // Update app container class to adjust padding
-        if (isCollapsed) {
-            appContainer.classList.add('sidebar-collapsed');
-        } else {
-            appContainer.classList.remove('sidebar-collapsed');
-        }
-        
-        // Update the sidebar toggle button text
-        if (this.sidebarToggle) {
-            this.sidebarToggle.textContent = isCollapsed ? 'Show' : 'Hide';
-        }
-    }
-
     // Clear all results
     clearAllResults() {
         if (this.getResultsCount() === 0) return;
@@ -590,6 +686,13 @@ const processingResults = new ProcessingResultsManager();
 
 // Export for use in other modules
 window.processingResults = processingResults;
+
+// Enhanced sidebar toggle function for external use
+window.enhancedSidebarToggle = function() {
+    if (window.processingResults && window.processingResults.toggleSidebar) {
+        window.processingResults.toggleSidebar();
+    }
+};
 
 // Test function for debugging
 window.addTestResult = function(invoiceId) {

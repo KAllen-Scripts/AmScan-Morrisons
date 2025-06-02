@@ -169,7 +169,7 @@ async function setupIPCHandlers() {
         }
     });
 
-    // Force window focus (helps with Electron focus issues)
+    // Force window focus (FIXED - gentler focus approach)
     ipcMain.handle('focus-window', async (event) => {
         try {
             // Try to get window from the event sender
@@ -189,23 +189,33 @@ async function setupIPCHandlers() {
             }
             
             if (win) {
-                // Multi-step focus approach for different platforms
-                win.show();
-                win.focus();
+                // Check if window is minimized and restore if needed
+                if (win.isMinimized()) {
+                    win.restore();
+                }
                 
-                // Additional focus tricks for stubborn platforms
+                // Only use gentle focus methods that don't affect window positioning
                 if (process.platform === 'win32') {
-                    // Windows-specific focus handling
-                    win.setAlwaysOnTop(true);
-                    win.setAlwaysOnTop(false);
+                    // For Windows: Use gentler focus approach that preserves snapped state
+                    // Only focus on the web view content, don't manipulate window state
                     win.focusOnWebView();
+                    
+                    // If the window still doesn't have focus, try the standard focus method
+                    if (!win.isFocused()) {
+                        win.focus();
+                    }
                 } else if (process.platform === 'darwin') {
                     // macOS-specific focus handling
                     app.focus({ steal: true });
+                    win.focus();
                 } else {
-                    // Linux-specific focus handling
-                    win.setAlwaysOnTop(true);
-                    win.setAlwaysOnTop(false);
+                    // Linux and other platforms - use standard focus
+                    win.focus();
+                }
+                
+                // Ensure the window is visible without changing its position/size
+                if (!win.isVisible()) {
+                    win.show();
                 }
             }
             
