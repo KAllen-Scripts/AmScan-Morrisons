@@ -34,6 +34,12 @@
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+    
+    /* Transition custom properties */
+    --transition-smooth: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --transition-bounce: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    --transition-fast: 0.2s ease-out;
+    --transition-standard: 0.3s ease;
 }
 
 body {
@@ -45,7 +51,50 @@ body {
     color: var(--gray-800);
 }
 
-/* Floating Sidebar Toggle - FIXED FOR NEW STRUCTURE */
+/* App Layout */
+.app-container {
+    display: flex;
+    min-height: 100vh;
+    padding-right: 400px;
+    transition: padding-right var(--transition-smooth);
+}
+
+.app-container.sidebar-collapsed {
+    padding-right: 0;
+}
+
+.main-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+    transition: transform var(--transition-smooth);
+}
+
+.app-container:not(.sidebar-collapsed) .main-content {
+    transform: translateX(-5px);
+}
+
+.app-container.sidebar-collapsed .main-content {
+    transform: translateX(0);
+}
+
+/* Main container (existing form) */
+.container {
+    background: var(--white);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--gray-200);
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+}
+
+/* Floating Sidebar Toggle */
 .floating-sidebar-toggle {
     position: fixed;
     top: 20px;
@@ -59,64 +108,43 @@ body {
     font-size: 1.2rem;
     cursor: pointer;
     box-shadow: var(--shadow-lg);
-    z-index: 999; /* Higher than sidebar */
-    transition: all 0.3s ease;
-    display: none; /* Hidden by default */
+    z-index: 999;
+    display: flex;
     align-items: center;
     justify-content: center;
+    
+    /* Enhanced animation properties */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(100px) scale(0.8);
+    transition: all var(--transition-bounce);
 }
 
 .floating-sidebar-toggle:hover {
     background: var(--secondary-blue);
-    transform: scale(1.1);
+    transform: translateX(0) scale(1.05);
     box-shadow: var(--shadow-xl);
+    transition: all var(--transition-fast);
 }
 
-/* Show floating button when sidebar is collapsed */
+/* Floating button visibility control */
 .sidebar.collapsed ~ * .floating-sidebar-toggle,
 .app-container.sidebar-collapsed .floating-sidebar-toggle {
-    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateX(0) scale(1) !important;
+    transition-delay: 0.3s;
 }
 
-/* Hide floating button when sidebar is visible */
 .sidebar:not(.collapsed) ~ * .floating-sidebar-toggle,
 .app-container:not(.sidebar-collapsed) .floating-sidebar-toggle {
-    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateX(100px) scale(0.8) !important;
+    transition-delay: 0s;
 }
 
-.app-container {
-    display: flex;
-    min-height: 100vh;
-    padding-right: 400px; /* Make space for fixed sidebar */
-}
-
-.app-container.sidebar-collapsed {
-    padding-right: 0; /* Remove padding when sidebar is collapsed */
-}
-
-.main-content {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    width: 100%; /* Take full width since sidebar is now fixed */
-}
-
-/* Main container (existing form) */
-.container {
-    background: var(--white);
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--gray-200);
-    padding: 2.5rem;
-    width: 100%;
-    max-width: 500px;
-    text-align: center;
-}
-
-/* Sidebar Styles - FIXED TO SCREEN VERSION */
+/* Sidebar Styles */
 .sidebar {
     width: 400px;
     background: var(--white);
@@ -124,17 +152,27 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    position: fixed; /* Fixed to screen */
+    position: fixed;
     top: 0;
     right: 0;
-    z-index: 100; /* Ensure it's above other content */
-    transition: transform 0.3s ease; /* Changed from width transition to transform */
+    z-index: 100;
     overflow: hidden;
-    box-shadow: var(--shadow-lg); /* Add shadow for depth */
+    box-shadow: var(--shadow-lg);
+    
+    transform: translateX(0);
+    opacity: 1;
+    visibility: visible;
+    transition: transform var(--transition-smooth),
+                opacity var(--transition-smooth),
+                visibility var(--transition-smooth),
+                box-shadow var(--transition-smooth);
 }
 
 .sidebar.collapsed {
-    transform: translateX(100%); /* Slide out to the right */
+    transform: translateX(100%);
+    opacity: 0;
+    visibility: hidden;
+    box-shadow: none;
 }
 
 .sidebar-header {
@@ -145,6 +183,13 @@ body {
     align-items: center;
     background: var(--gray-50);
     flex-shrink: 0;
+    opacity: 1;
+    transition: opacity var(--transition-standard);
+}
+
+.sidebar.collapsed .sidebar-header {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
 }
 
 .sidebar-header h3 {
@@ -162,20 +207,29 @@ body {
 .sidebar-toggle {
     background: var(--gray-200) !important;
     color: var(--gray-700) !important;
+    transition: all var(--transition-fast);
 }
 
 .sidebar-toggle:hover {
     background: var(--gray-300) !important;
+    transform: translateY(-1px);
 }
 
 .sidebar-content {
     flex: 1;
-    overflow-y: auto; /* Enable scrolling within sidebar */
+    overflow-y: auto;
     overflow-x: hidden;
     padding: 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    opacity: 1;
+    transition: opacity var(--transition-standard);
+}
+
+.sidebar.collapsed .sidebar-content {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
 }
 
 /* No Results State */
@@ -188,7 +242,7 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: 300px; /* Ensure minimum height for visual presence */
+    min-height: 300px;
 }
 
 .no-results p {
@@ -200,7 +254,7 @@ body {
     color: var(--gray-400);
 }
 
-/* Results List - FIXED */
+/* Results List */
 .results-list {
     padding: 0;
     flex: 1;
@@ -209,11 +263,11 @@ body {
     flex-direction: column;
 }
 
-/* Result Item - Remove any height restrictions */
+/* Result Item */
 .result-item {
     border-bottom: 1px solid var(--gray-200);
-    transition: all 0.2s ease;
-    flex-shrink: 0; /* Prevent items from shrinking */
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
 }
 
 .result-item:hover {
@@ -285,22 +339,20 @@ body {
     align-items: center;
 }
 
-/* Result Details - Ensure they can expand */
+/* Result Details */
 .result-details {
     padding: 0 1.5rem 1rem;
     border-top: 1px solid var(--gray-100);
     background: var(--gray-50);
-    /* Remove any height restrictions */
 }
 
 .result-item.collapsed .result-details {
     display: none;
 }
 
-/* Step List - Remove height restrictions */
+/* Step List */
 .step-list {
     margin-top: 1rem;
-    /* Remove any height restrictions */
 }
 
 .step {
@@ -314,12 +366,12 @@ body {
 .step:not(:last-child)::after {
     content: '';
     position: absolute;
-    left: 7px; /* Center of the 16px icon */
-    top: 24px; /* Start below the icon (16px height + 8px margin) */
+    left: 7px;
+    top: 24px;
     width: 2px;
-    height: calc(100% - 8px); /* Reduce height to not overlap next icon */
+    height: calc(100% - 8px);
     background: var(--gray-200);
-    z-index: 1; /* Behind the icons */
+    z-index: 1;
 }
 
 .step-icon {
@@ -334,7 +386,7 @@ body {
     flex-shrink: 0;
     margin-top: 0.125rem;
     position: relative;
-    z-index: 2; /* Above the connecting lines */
+    z-index: 2;
 }
 
 .step.success .step-icon {
@@ -410,7 +462,7 @@ body {
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
     width: 100%;
     margin-top: 1rem;
     display: flex;
@@ -428,6 +480,24 @@ body {
 
 .btn:active {
     transform: translateY(0);
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--secondary-blue);
+    outline-offset: 2px;
+}
+
+.btn:disabled {
+    background: var(--gray-300);
+    color: var(--gray-500);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn:disabled:hover {
+    background: var(--gray-300);
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-small {
@@ -471,7 +541,7 @@ body {
     border-radius: 4px;
     color: var(--gray-500);
     font-size: 1rem;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -571,9 +641,15 @@ h1 {
     border: 1px solid var(--gray-300);
     border-radius: 6px;
     font-size: 0.95rem;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
     background-color: var(--white);
     color: var(--gray-800);
+}
+
+.form-input:hover,
+.form-textarea:hover,
+.form-select:hover {
+    border-color: var(--gray-400);
 }
 
 .form-input:focus,
@@ -582,6 +658,13 @@ h1 {
     outline: none;
     border-color: var(--secondary-blue);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input:focus-visible,
+.form-textarea:focus-visible,
+.form-select:focus-visible {
+    outline: 2px solid var(--secondary-blue);
+    outline-offset: 2px;
 }
 
 .form-textarea {
@@ -601,6 +684,11 @@ h1 {
 .form-radio input {
     margin-right: 0.5rem;
     accent-color: var(--primary-blue);
+}
+
+.form-help-text {
+    color: var(--gray-500);
+    font-size: 0.8rem;
 }
 
 /* Modal styles */
@@ -681,7 +769,7 @@ h1 {
     align-items: center;
     justify-content: center;
     border-radius: 4px;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
 }
 
 .modal-close:hover {
@@ -794,11 +882,6 @@ h1 {
     font-weight: 600;
 }
 
-.form-help-text {
-    color: var(--gray-500);
-    font-size: 0.8rem;
-}
-
 /* Task status styles */
 .task-status-container {
     margin: 10px 0;
@@ -838,7 +921,65 @@ h1 {
     }
 }
 
-/* Responsive design - UPDATED FOR FIXED SIDEBAR */
+@keyframes floatingButtonAppear {
+    0% {
+        opacity: 0;
+        transform: translateX(100px) scale(0.5) rotate(-90deg);
+    }
+    50% {
+        opacity: 0.8;
+        transform: translateX(-10px) scale(1.1) rotate(0deg);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1) rotate(0deg);
+    }
+}
+
+@keyframes shadowPulse {
+    0%, 100% {
+        box-shadow: var(--shadow-lg);
+    }
+    50% {
+        box-shadow: 0 8px 25px rgba(30, 58, 138, 0.3);
+    }
+}
+
+/* Apply appear animation when sidebar is first collapsed */
+.sidebar.collapsed ~ * .floating-sidebar-toggle:not(.no-animation),
+.app-container.sidebar-collapsed .floating-sidebar-toggle:not(.no-animation) {
+    animation: floatingButtonAppear 0.6s var(--transition-bounce) forwards;
+    animation-delay: 0.3s;
+}
+
+.floating-sidebar-toggle:not(.sidebar.collapsed ~ *):not(.app-container.sidebar-collapsed *) {
+    animation: shadowPulse 3s ease-in-out infinite;
+    animation-delay: 1s;
+}
+
+/* Scrollbar styling */
+.sidebar-content::-webkit-scrollbar,
+.edi-payload::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidebar-content::-webkit-scrollbar-track,
+.edi-payload::-webkit-scrollbar-track {
+    background: var(--gray-100);
+}
+
+.sidebar-content::-webkit-scrollbar-thumb,
+.edi-payload::-webkit-scrollbar-thumb {
+    background: var(--gray-400);
+    border-radius: 4px;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover,
+.edi-payload::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-500);
+}
+
+/* Responsive design */
 @media (max-width: 1200px) {
     .sidebar {
         width: 350px;
@@ -856,31 +997,55 @@ h1 {
 @media (max-width: 1000px) {
     .app-container {
         flex-direction: column;
-        padding-right: 0; /* No padding on mobile */
+        padding-right: 0;
+        transition: none;
     }
     
     .sidebar {
         width: 100%;
-        height: 50vh; /* Half screen height on mobile */
+        height: 50vh;
         position: fixed;
-        bottom: 0; /* Position at bottom on mobile */
+        bottom: 0;
         top: auto;
         right: 0;
         border-left: none;
         border-top: 1px solid var(--gray-200);
+        transform: translateY(0);
+        transition: transform var(--transition-smooth),
+                    opacity var(--transition-smooth),
+                    visibility var(--transition-smooth);
     }
     
     .sidebar.collapsed {
-        transform: translateY(100%); /* Slide down on mobile */
+        transform: translateY(100%);
     }
     
     .main-content {
         padding: 15px;
-        padding-bottom: calc(15px + 50vh); /* Add space for mobile sidebar */
+        padding-bottom: calc(15px + 50vh);
+        transform: none;
     }
     
     .app-container.sidebar-collapsed .main-content {
-        padding-bottom: 15px; /* Remove extra space when collapsed */
+        padding-bottom: 15px;
+        transform: none;
+    }
+    
+    .floating-sidebar-toggle {
+        top: auto;
+        bottom: 20px;
+        transform: translateY(100px) scale(0.8);
+        transition: all var(--transition-bounce);
+    }
+    
+    .sidebar.collapsed ~ * .floating-sidebar-toggle,
+    .app-container.sidebar-collapsed .floating-sidebar-toggle {
+        transform: translateY(0) scale(1) !important;
+    }
+    
+    .sidebar:not(.collapsed) ~ * .floating-sidebar-toggle,
+    .app-container:not(.sidebar-collapsed) .floating-sidebar-toggle {
+        transform: translateY(100px) scale(0.8) !important;
     }
     
     .container {
@@ -891,7 +1056,7 @@ h1 {
 
 @media (max-width: 768px) {
     .sidebar {
-        height: 40vh; /* Smaller height for small screens */
+        height: 40vh;
     }
     
     .main-content {
@@ -944,322 +1109,8 @@ h1 {
     .retry-count {
         font-size: 0.625rem;
     }
-}
-
-/* Additional professional touches */
-.form-input:hover,
-.form-textarea:hover,
-.form-select:hover {
-    border-color: var(--gray-400);
-}
-
-.btn:disabled {
-    background: var(--gray-300);
-    color: var(--gray-500);
-    cursor: not-allowed;
-    transform: none;
-}
-
-.btn:disabled:hover {
-    background: var(--gray-300);
-    transform: none;
-    box-shadow: none;
-}
-
-/* Focus styles for accessibility */
-.btn:focus-visible {
-    outline: 2px solid var(--secondary-blue);
-    outline-offset: 2px;
-}
-
-.form-input:focus-visible,
-.form-textarea:focus-visible,
-.form-select:focus-visible {
-    outline: 2px solid var(--secondary-blue);
-    outline-offset: 2px;
-}
-
-/* Scrollbar styling for sidebar */
-.sidebar-content::-webkit-scrollbar {
-    width: 8px;
-}
-
-.sidebar-content::-webkit-scrollbar-track {
-    background: var(--gray-100);
-}
-
-.sidebar-content::-webkit-scrollbar-thumb {
-    background: var(--gray-400);
-    border-radius: 4px;
-}
-
-.sidebar-content::-webkit-scrollbar-thumb:hover {
-    background: var(--gray-500);
-}
-
-.edi-payload::-webkit-scrollbar {
-    width: 8px;
-}
-
-.edi-payload::-webkit-scrollbar-track {
-    background: var(--gray-100);
-}
-
-.edi-payload::-webkit-scrollbar-thumb {
-    background: var(--gray-400);
-    border-radius: 4px;
-}
-
-.edi-payload::-webkit-scrollbar-thumb:hover {
-    background: var(--gray-500);
-}
-
-
-/* Floating Sidebar Toggle - Enhanced with graceful animations */
-.floating-sidebar-toggle {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 50px;
-    height: 50px;
-    background: var(--primary-blue);
-    color: var(--white);
-    border: none;
-    border-radius: 50%;
-    font-size: 1.2rem;
-    cursor: pointer;
-    box-shadow: var(--shadow-lg);
-    z-index: 999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     
-    /* Enhanced animation properties */
-    opacity: 0;
-    visibility: hidden;
-    transform: translateX(100px) scale(0.8);
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy easing */
-}
-
-.floating-sidebar-toggle:hover {
-    background: var(--secondary-blue);
-    transform: translateX(0) scale(1.05);
-    box-shadow: var(--shadow-xl);
-    transition: all 0.2s ease-out;
-}
-
-/* Show floating button when sidebar is collapsed - Enhanced */
-.sidebar.collapsed ~ * .floating-sidebar-toggle,
-.app-container.sidebar-collapsed .floating-sidebar-toggle {
-    opacity: 1 !important;
-    visibility: visible !important;
-    transform: translateX(0) scale(1) !important;
-    /* Delayed appearance for graceful timing */
-    transition-delay: 0.3s;
-}
-
-/* Hide floating button when sidebar is visible - Enhanced */
-.sidebar:not(.collapsed) ~ * .floating-sidebar-toggle,
-.app-container:not(.sidebar-collapsed) .floating-sidebar-toggle {
-    opacity: 0 !important;
-    visibility: hidden !important;
-    transform: translateX(100px) scale(0.8) !important;
-    transition-delay: 0s; /* Immediate hiding when sidebar appears */
-}
-
-/* Enhanced app container transitions */
-.app-container {
-    display: flex;
-    min-height: 100vh;
-    padding-right: 400px;
-    transition: padding-right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Smooth easing */
-}
-
-.app-container.sidebar-collapsed {
-    padding-right: 0;
-}
-
-/* Sidebar Styles - Enhanced with fluid animations */
-.sidebar {
-    width: 400px;
-    background: var(--white);
-    border-left: 1px solid var(--gray-200);
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    position: fixed;
-    top: 0;
-    right: 0;
-    z-index: 100;
-    overflow: hidden;
-    box-shadow: var(--shadow-lg);
-    
-    /* Enhanced transform and opacity animations */
-    transform: translateX(0);
-    opacity: 1;
-    visibility: visible;
-    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                opacity 0.4s ease-out,
-                visibility 0.4s ease-out,
-                box-shadow 0.4s ease-out;
-}
-
-.sidebar.collapsed {
-    transform: translateX(100%);
-    opacity: 0;
-    visibility: hidden;
-    box-shadow: none;
-}
-
-/* Enhanced sidebar content fade during transitions */
-.sidebar-content {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    
-    /* Subtle content fade */
-    opacity: 1;
-    transition: opacity 0.3s ease-out;
-}
-
-.sidebar.collapsed .sidebar-content {
-    opacity: 0;
-    transition: opacity 0.2s ease-out;
-}
-
-/* Enhanced sidebar header during transitions */
-.sidebar-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--gray-200);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--gray-50);
-    flex-shrink: 0;
-    
-    /* Subtle header fade */
-    opacity: 1;
-    transition: opacity 0.3s ease-out;
-}
-
-.sidebar.collapsed .sidebar-header {
-    opacity: 0;
-    transition: opacity 0.2s ease-out;
-}
-
-/* Enhanced button animations for sidebar toggle */
-.sidebar-toggle {
-    background: var(--gray-200) !important;
-    color: var(--gray-700) !important;
-    transition: all 0.2s ease-out;
-}
-
-.sidebar-toggle:hover {
-    background: var(--gray-300) !important;
-    transform: translateY(-1px);
-}
-
-/* Floating button pulse animation when first appearing */
-@keyframes floatingButtonAppear {
-    0% {
-        opacity: 0;
-        transform: translateX(100px) scale(0.5) rotate(-90deg);
-    }
-    50% {
-        opacity: 0.8;
-        transform: translateX(-10px) scale(1.1) rotate(0deg);
-    }
-    100% {
-        opacity: 1;
-        transform: translateX(0) scale(1) rotate(0deg);
-    }
-}
-
-/* Apply appear animation when sidebar is first collapsed */
-.sidebar.collapsed ~ * .floating-sidebar-toggle:not(.no-animation),
-.app-container.sidebar-collapsed .floating-sidebar-toggle:not(.no-animation) {
-    animation: floatingButtonAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-    animation-delay: 0.3s;
-}
-
-/* Gentle hover animations for floating button */
-.floating-sidebar-toggle:hover {
-    animation: none; /* Stop appear animation on hover */
-}
-
-/* Add a gentle shadow pulse when floating button is active */
-@keyframes shadowPulse {
-    0%, 100% {
-        box-shadow: var(--shadow-lg);
-    }
-    50% {
-        box-shadow: 0 8px 25px rgba(30, 58, 138, 0.3);
-    }
-}
-
-.floating-sidebar-toggle:not(.sidebar.collapsed ~ *):not(.app-container.sidebar-collapsed *) {
-    animation: shadowPulse 3s ease-in-out infinite;
-    animation-delay: 1s;
-}
-
-/* Enhanced mobile responsiveness with better animations */
-@media (max-width: 1000px) {
-    .app-container {
-        flex-direction: column;
-        padding-right: 0;
-        transition: none; /* Disable padding transition on mobile */
-    }
-    
-    .sidebar {
-        width: 100%;
-        height: 50vh;
-        position: fixed;
-        bottom: 0;
-        top: auto;
-        right: 0;
-        border-left: none;
-        border-top: 1px solid var(--gray-200);
-        
-        /* Mobile-specific slide animation */
-        transform: translateY(0);
-        transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-                    opacity 0.4s ease-out,
-                    visibility 0.4s ease-out;
-    }
-    
-    .sidebar.collapsed {
-        transform: translateY(100%); /* Slide down on mobile */
-    }
-    
-    .floating-sidebar-toggle {
-        /* Adjust floating button position for mobile */
-        top: auto;
-        bottom: 20px;
-        transform: translateY(100px) scale(0.8);
-        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    
-    .sidebar.collapsed ~ * .floating-sidebar-toggle,
-    .app-container.sidebar-collapsed .floating-sidebar-toggle {
-        transform: translateY(0) scale(1) !important;
-    }
-    
-    .sidebar:not(.collapsed) ~ * .floating-sidebar-toggle,
-    .app-container:not(.sidebar-collapsed) .floating-sidebar-toggle {
-        transform: translateY(100px) scale(0.8) !important;
-    }
-}
-
-@media (max-width: 768px) {
-    .sidebar {
-        height: 40vh;
-    }
-    
-    /* Adjust appear animation for smaller screens */
+    /* Mobile floating button animation */
     @keyframes floatingButtonAppearMobile {
         0% {
             opacity: 0;
@@ -1277,31 +1128,8 @@ h1 {
     
     .sidebar.collapsed ~ * .floating-sidebar-toggle:not(.no-animation),
     .app-container.sidebar-collapsed .floating-sidebar-toggle:not(.no-animation) {
-        animation: floatingButtonAppearMobile 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        animation: floatingButtonAppearMobile 0.6s var(--transition-bounce) forwards;
     }
-}
-
-/* Add smooth transitions for main content when sidebar toggles */
-.main-content {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    width: 100%;
-    
-    /* Subtle shift animation */
-    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-/* Optional: Add a very subtle parallax effect to main content */
-.app-container:not(.sidebar-collapsed) .main-content {
-    transform: translateX(-5px);
-}
-
-.app-container.sidebar-collapsed .main-content {
-    transform: translateX(0);
 }
 
 /* Prevent animation class to disable specific animations when needed */
