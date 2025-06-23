@@ -11,10 +11,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     writeFile: (filePath, content, options) => ipcRenderer.invoke('write-file', filePath, content, options),
     readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
     
-    // Credentials management
-    saveCredentials: (credentials) => ipcRenderer.invoke('save-credentials', credentials),
-    loadCredentials: () => ipcRenderer.invoke('load-credentials'),
-    clearCredentials: () => ipcRenderer.invoke('clear-credentials'),
+    // Credentials management - UPDATED to support credential types for unique storage
+    saveCredentials: (credentialsType, credentials) => ipcRenderer.invoke('save-credentials', credentialsType, credentials),
+    loadCredentials: (credentialsType) => ipcRenderer.invoke('load-credentials', credentialsType),
+    clearCredentials: (credentialsType) => ipcRenderer.invoke('clear-credentials', credentialsType),
     
     // Window focus management (for fixing Electron focus issues)
     focusWindow: () => ipcRenderer.invoke('focus-window'),

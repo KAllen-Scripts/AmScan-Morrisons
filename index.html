@@ -46,15 +46,27 @@
                 <h1>Sync Tool Configuration</h1>
                 <p class="subtitle">Enter the configuration details for the sync tool</p>
 
-                <!-- Credentials Button -->
+                <!-- API Credentials Button -->
                 <div class="credentials-section">
                     <button type="button" class="btn btn-secondary" id="credentialsBtn">
                         <span class="btn-icon">🔐</span>
-                        Manage Credentials
+                        Manage API Credentials
                     </button>
                     <div class="credentials-status" id="credentialsStatus">
                         <span class="status-indicator" id="statusIndicator">●</span>
-                        <span id="statusText">No credentials stored</span>
+                        <span id="statusText">No API credentials stored</span>
+                    </div>
+                </div>
+
+                <!-- FTP Credentials Button -->
+                <div class="credentials-section">
+                    <button type="button" class="btn btn-secondary" id="ftpCredentialsBtn">
+                        <span class="btn-icon">📁</span>
+                        Manage FTP Credentials
+                    </button>
+                    <div class="credentials-status" id="ftpCredentialsStatus">
+                        <span class="status-indicator" id="ftpStatusIndicator">●</span>
+                        <span id="ftpStatusText">No FTP credentials stored</span>
                     </div>
                 </div>
 
@@ -63,7 +75,7 @@
                     <div class="form-group">
                         <label class="form-label" for="senderGLN">Sender GLN</label>
                         <input type="text" id="senderGLN" name="senderGLN" class="form-input" 
-                               placeholder="e.g. 5012246000008" required 
+                               value="5012246000008" required 
                                pattern="[0-9]{13}" title="Must be 13 digits"
                                autocomplete="off" spellcheck="false">
                     </div>
@@ -71,7 +83,7 @@
                     <div class="form-group">
                         <label class="form-label" for="receiverGLN">Receiver GLN</label>
                         <input type="text" id="receiverGLN" name="receiverGLN" class="form-input" 
-                               placeholder="e.g. 5010251000006" required 
+                               value="5013546229793" required 
                                pattern="[0-9]{13}" title="Must be 13 digits"
                                autocomplete="off" spellcheck="false">
                     </div>
@@ -79,7 +91,7 @@
                     <div class="form-group">
                         <label class="form-label" for="buyerGLN">Buyer GLN (Morrisons)</label>
                         <input type="text" id="buyerGLN" name="buyerGLN" class="form-input" 
-                               placeholder="e.g. 5010251000006" required 
+                               value="5010251000006" required 
                                pattern="[0-9]{13}" title="Must be 13 digits"
                                autocomplete="off" spellcheck="false">
                         <small class="form-help-text">Morrisons' buyer GLN (can be same as or different from Receiver GLN)</small>
@@ -88,7 +100,7 @@
                     <div class="form-group">
                         <label class="form-label" for="deliveryPointGLN">Delivery Point GLN</label>
                         <input type="text" id="deliveryPointGLN" name="deliveryPointGLN" class="form-input" 
-                               placeholder="e.g. 5010251999911" required 
+                               value="5010251000396" required 
                                pattern="[0-9]{13}" title="Must be 13 digits"
                                autocomplete="off" spellcheck="false">
                     </div>
@@ -96,21 +108,21 @@
                     <div class="form-group">
                         <label class="form-label" for="deliveryPointName">Delivery Point Name</label>
                         <input type="text" id="deliveryPointName" name="deliveryPointName" class="form-input" 
-                               placeholder="e.g. STOCKTON RDC" required
+                               value="store number 39" required
                                autocomplete="off" spellcheck="false" maxlength="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="deliveryPointAddress">Delivery Point Address</label>
                         <input type="text" id="deliveryPointAddress" name="deliveryPointAddress" class="form-input" 
-                               placeholder="STREET:AREA:CITY:COUNTY (colon separated)" required
+                               value="BAWTRY RD:BRAMLEY:ROTHERHAM:SOUTH YORKSHIRE" required
                                autocomplete="off" spellcheck="false" maxlength="200">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="supplierVAT">Supplier VAT</label>
                         <input type="text" id="supplierVAT" name="supplierVAT" class="form-input" 
-                               placeholder="e.g. GB987654321" required
+                               value="GB987654321" required
                                pattern="[A-Z]{2}[0-9]{9,12}" title="Format: GB123456789"
                                autocomplete="off" spellcheck="false" maxlength="15">
                     </div>
@@ -118,14 +130,14 @@
                     <div class="form-group">
                         <label class="form-label" for="supplierAddress">Supplier Address</label>
                         <input type="text" id="supplierAddress" name="supplierAddress" class="form-input" 
-                               placeholder="firstName lastName:STREET:CITY:COUNTY:POSTCODE (colon separated)" required
+                               value="firstName lastName:STREET:CITY:COUNTY:POSTCODE" required
                                autocomplete="off" spellcheck="false" maxlength="200">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="internalVendorNumber">Internal Vendor Number</label>
                         <input type="text" id="internalVendorNumber" name="internalVendorNumber" class="form-input" 
-                               placeholder="e.g. 12345" required
+                               value="12345" required
                                pattern="[0-9A-Za-z]{1,20}" title="Alphanumeric, max 20 characters"
                                autocomplete="off" spellcheck="false" maxlength="20">
                     </div>
@@ -133,7 +145,7 @@
                     <div class="form-group">
                         <label class="form-label" for="interchangeRef">Interchange Reference</label>
                         <input type="text" id="interchangeRef" name="interchangeRef" class="form-input" 
-                               placeholder="e.g. 000001" required
+                               value="000001" required
                                pattern="[0-9A-Za-z]{1,20}" title="Alphanumeric, max 20 characters"
                                autocomplete="off" spellcheck="false" maxlength="20">
                     </div>
@@ -148,9 +160,9 @@
                     <div class="form-group">
                         <label class="form-label" for="paymentTerms">Payment Terms</label>
                         <select id="paymentTerms" name="paymentTerms" class="form-select" required autocomplete="off">
-                            <option value="" disabled selected>Select payment terms</option>
+                            <option value="" disabled>Select payment terms</option>
+                            <option value="NET 15" selected>NET 15</option>
                             <option value="NET 30">NET 30</option>
-                            <option value="NET 15">NET 15</option>
                             <option value="NET 60">NET 60</option>
                             <option value="NET 90">NET 90</option>
                             <option value="COD">Cash on Delivery (COD)</option>
@@ -161,11 +173,11 @@
                     <div class="form-group">
                         <label class="form-label" for="timerCycle">Timer Cycle</label>
                         <select id="timerCycle" name="timerCycle" class="form-select" required autocomplete="off">
-                            <option value="" disabled selected>Select timer interval</option>
+                            <option value="" disabled>Select timer interval</option>
                             <option value="0.08">Every 5 seconds (testing)</option>
                             <option value="1">Every 1 minute (testing)</option>
                             <option value="30">Every 30 minutes</option>
-                            <option value="60">Every 1 hour</option>
+                            <option value="60" selected>Every 1 hour</option>
                             <option value="120">Every 2 hours</option>
                             <option value="240">Every 4 hours</option>
                             <option value="480">Every 8 hours</option>
@@ -229,11 +241,11 @@
         </div>
     </div>
 
-    <!-- Enhanced Security Modal with additional protections -->
+    <!-- API Credentials Modal -->
     <div class="modal-overlay" id="credentialsModal" tabindex="-1" role="dialog" aria-labelledby="credentialsModalTitle" aria-hidden="true">
         <div class="modal" tabindex="-1" role="document">
             <div class="modal-header">
-                <h3 id="credentialsModalTitle">Manage Credentials</h3>
+                <h3 id="credentialsModalTitle">Manage API Credentials</h3>
                 <button type="button" class="modal-close" id="closeModal" aria-label="Close modal">&times;</button>
             </div>
             <div class="modal-body">
@@ -275,6 +287,66 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="clearCredentials" tabindex="5">Clear Credentials</button>
                 <button type="button" class="btn" id="saveCredentials" tabindex="6">Save Credentials</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FTP Credentials Modal -->
+    <div class="modal-overlay" id="ftpCredentialsModal" tabindex="-1" role="dialog" aria-labelledby="ftpCredentialsModalTitle" aria-hidden="true">
+        <div class="modal" tabindex="-1" role="document">
+            <div class="modal-header">
+                <h3 id="ftpCredentialsModalTitle">Manage FTP Credentials</h3>
+                <button type="button" class="modal-close" id="closeFtpModal" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="ftpCredentialsForm" novalidate>
+                    <div class="form-group">
+                        <label class="form-label" for="ftpHost">FTP Host</label>
+                        <input type="text" id="ftpHost" name="ftpHost" class="form-input" 
+                               placeholder="ftp.example.com" required tabindex="1"
+                               autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ftpPort">Port</label>
+                        <input type="text" id="ftpPort" name="ftpPort" class="form-input" 
+                               value="22" required tabindex="2"
+                               autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ftpUsername">Username</label>
+                        <input type="text" id="ftpUsername" name="ftpUsername" class="form-input" 
+                               placeholder="Enter username" required tabindex="3"
+                               autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ftpPassword">Password</label>
+                        <input type="password" id="ftpPassword" name="ftpPassword" class="form-input" 
+                               placeholder="Enter password" required tabindex="4"
+                               autocomplete="new-password" spellcheck="false">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="ftpDirectory">Directory</label>
+                        <input type="text" id="ftpDirectory" name="ftpDirectory" class="form-input" 
+                               placeholder="/path/to/files (optional)" tabindex="5"
+                               autocomplete="off" spellcheck="false">
+                    </div>
+                    <div class="form-group">
+                        <div class="form-checkbox">
+                            <input type="checkbox" id="ftpSecure" tabindex="6">
+                            <label for="ftpSecure">Use SFTP (Secure)</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-checkbox">
+                            <input type="checkbox" id="showFtpPassword" tabindex="7">
+                            <label for="showFtpPassword">Show password</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="clearFtpCredentials" tabindex="8">Clear Credentials</button>
+                <button type="button" class="btn" id="saveFtpCredentials" tabindex="9">Save Credentials</button>
             </div>
         </div>
     </div>

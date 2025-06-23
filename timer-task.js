@@ -113,8 +113,8 @@ async function handleData() {
     updateTaskStatus(true, '', { tooltip: `Task execution started` });
     
     try {
-        // Step 1: Validate credentials are available (no expiration check)
-        const credentialValidation = await validateCredentials();
+        // Step 1: Wait for credentials to be loaded (FIXED)
+        const credentialValidation = await waitForCredentialsAndValidate();
         if (!credentialValidation.isValid) {
             updateTaskStatus(false, credentialValidation.status, {
                 tooltip: credentialValidation.message
@@ -175,41 +175,92 @@ async function handleData() {
     }
 }
 
-async function validateCredentials() {
-    // Check if credentials handler is available
-    if (!window.credentialsHandler) {
+// FIXED: Wait for credentials to be properly loaded before validating
+async function waitForCredentialsAndValidate(maxAttempts = 10, delayMs = 500) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        // Check if credentials handler is available
+        if (!window.credentialsHandler) {
+            if (attempt === maxAttempts) {
+                return {
+                    isValid: false,
+                    status: '❌ No credentials handler',
+                    message: 'Credentials handler not initialized'
+                };
+            }
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+        }
+        
+        // Try to get API credentials directly from the secure manager
+        const apiCredentials = await window.credentialsHandler.getApiCredentials();
+        
+        if (!apiCredentials) {
+            if (attempt === maxAttempts) {
+                return {
+                    isValid: false,
+                    status: '🔒 No credentials',
+                    message: 'Please configure API credentials first'
+                };
+            }
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+        }
+
+        // Validate that we have all required API credential fields
+        if (!apiCredentials.clientId || !apiCredentials.secretKey || !apiCredentials.accountKey) {
+            if (attempt === maxAttempts) {
+                return {
+                    isValid: false,
+                    status: '🔒 Incomplete credentials',
+                    message: 'API credentials are missing required fields'
+                };
+            }
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+        }
+
+        // Store credentials in the global proxy for compatibility
+        if (window.appCredentials) {
+            try {
+                // This will trigger the proxy to load the credentials
+                const isLoaded = window.appCredentials.isLoaded;
+                if (!isLoaded) {
+                    if (attempt === maxAttempts) {
+                        return {
+                            isValid: false,
+                            status: '🔒 Proxy not ready',
+                            message: 'Global credentials proxy not ready'
+                        };
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                    continue;
+                }
+            } catch (error) {
+                if (attempt === maxAttempts) {
+                    return {
+                        isValid: false,
+                        status: '🔒 Proxy error',
+                        message: `Credentials proxy error: ${error.message}`
+                    };
+                }
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+                continue;
+            }
+        }
+
+        // All checks passed
         return {
-            isValid: false,
-            status: '❌ No credentials handler',
-            message: 'Credentials handler not initialized'
+            isValid: true,
+            status: '✓ Credentials valid',
+            message: 'Credentials are valid and ready'
         };
     }
-    
-    // Check if credentials are loaded (no expiration check)
-    if (!window.appCredentials || !window.appCredentials.isLoaded) {
-        return {
-            isValid: false,
-            status: '🔒 No credentials',
-            message: 'Please configure credentials first'
-        };
-    }
-    
-    // Check credential status from secure manager (no expiration check)
-    const credStatus = window.credentialsHandler.getCredentialStatus();
-    
-    if (!credStatus.exists) {
-        return {
-            isValid: false,
-            status: '🔒 Credentials missing',
-            message: 'Credentials not found in secure storage'
-        };
-    }
-    
-    // No expiration checks - credentials are always valid if they exist
+
+    // If we get here, all attempts failed
     return {
-        isValid: true,
-        status: '✓ Credentials valid',
-        message: 'Credentials are valid and active'
+        isValid: false,
+        status: '🔒 Timeout',
+        message: 'Timed out waiting for credentials to load'
     };
 }
 
@@ -217,11 +268,22 @@ async function initializeApiIfNeeded() {
     try {
         // Check if we need to initialize or re-initialize
         if (!isApiInitialized || consecutiveFailures > 2) {
-            const credentials = window.appCredentials;
+            
+            // Get credentials again to ensure they're fresh
+            const apiCredentials = await window.credentialsHandler.getApiCredentials();
+            
+            if (!apiCredentials) {
+                return {
+                    success: false,
+                    status: '❌ No credentials',
+                    message: 'API credentials not available for initialization'
+                };
+            }
+
             const initSuccess = await window.stoklyAPI.initializeStoklyAPI({
-                accountKey: credentials.accountKey,
-                clientId: credentials.clientId,
-                secretKey: credentials.secretKey,
+                accountKey: apiCredentials.accountKey,
+                clientId: apiCredentials.clientId,
+                secretKey: apiCredentials.secretKey,
                 environment: apiEnvironment
             });
             
@@ -349,7 +411,6 @@ async function handleErrorRecovery(error, errorResponse) {
         case 'auth':
             // Reset initialization flag to force re-auth
             isApiInitialized = false;
-            // No credential locking for auth failures - just log
             if (consecutiveFailures > 3) {
                 console.warn('Repeated authentication failures - check credentials manually');
             }

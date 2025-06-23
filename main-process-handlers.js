@@ -3,15 +3,13 @@ const fs = require('fs').promises;
 const path = require('path');
 const EncryptionUtils = require('./encryption-utils');
 
-let Store;
 let store;
 let encryptionUtils;
 
 // Initialize the store with dynamic import
 async function initializeStore() {
-    if (!Store) {
-        const storeModule = await import('electron-store');
-        Store = storeModule.default;
+    if (!store) {
+        const { default: Store } = await import('electron-store');
         
         store = new Store({
             name: 'sync-tool-config',
@@ -120,15 +118,18 @@ async function setupIPCHandlers() {
     });
 
     // Save encrypted credentials
-    ipcMain.handle('save-credentials', async (event, credentials) => {
+    ipcMain.handle('save-credentials', async (event, credentialsType, credentials) => {
         try {
             if (!store) await initializeStore();
+            
+            const storageKey = credentialsType;
             
             // Encrypt the credentials using AES-256-GCM
             const encryptedCredentials = encryptionUtils.encryptCredentials(credentials);
             
             // Store the encrypted data
-            store.set('userCredentials', encryptedCredentials);
+            store.set(storageKey, encryptedCredentials);
+            
             return { success: true };
         } catch (error) {
             console.error('Error saving credentials:', error);
@@ -137,17 +138,20 @@ async function setupIPCHandlers() {
     });
 
     // Load encrypted credentials
-    ipcMain.handle('load-credentials', async (event) => {
+    ipcMain.handle('load-credentials', async (event, credentialsType) => {
         try {
             if (!store) await initializeStore();
             
-            const encryptedCredentials = store.get('userCredentials');
+            const storageKey = credentialsType;
+            
+            const encryptedCredentials = store.get(storageKey);
             if (!encryptedCredentials) {
                 return null;
             }
             
             // Decrypt the credentials
             const decryptedCredentials = encryptionUtils.decryptCredentials(encryptedCredentials);
+            
             return decryptedCredentials;
         } catch (error) {
             console.error('Error loading credentials:', error);
@@ -157,11 +161,14 @@ async function setupIPCHandlers() {
     });
 
     // Clear encrypted credentials
-    ipcMain.handle('clear-credentials', async (event) => {
+    ipcMain.handle('clear-credentials', async (event, credentialsType) => {
         try {
             if (!store) await initializeStore();
             
-            store.delete('userCredentials');
+            const storageKey = credentialsType;
+            
+            store.delete(storageKey);
+            
             return { success: true };
         } catch (error) {
             console.error('Error clearing credentials:', error);
@@ -169,7 +176,7 @@ async function setupIPCHandlers() {
         }
     });
 
-    // Force window focus (FIXED - gentler focus approach)
+    // Force window focus
     ipcMain.handle('focus-window', async (event) => {
         try {
             // Try to get window from the event sender
@@ -196,20 +203,15 @@ async function setupIPCHandlers() {
                 
                 // Only use gentle focus methods that don't affect window positioning
                 if (process.platform === 'win32') {
-                    // For Windows: Use gentler focus approach that preserves snapped state
-                    // Only focus on the web view content, don't manipulate window state
                     win.focusOnWebView();
                     
-                    // If the window still doesn't have focus, try the standard focus method
                     if (!win.isFocused()) {
                         win.focus();
                     }
                 } else if (process.platform === 'darwin') {
-                    // macOS-specific focus handling
                     app.focus({ steal: true });
                     win.focus();
                 } else {
-                    // Linux and other platforms - use standard focus
                     win.focus();
                 }
                 

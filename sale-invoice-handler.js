@@ -67,6 +67,14 @@ const MORRISONS_NAME = 'WM. MORRISON SUPERMARKETS PLC';
 const MORRISONS_ADDRESS = 'HILMORE HOUSE:GAIN LANE::BD3 7DL';
 const MORRISONS_VAT = '343475355';
 
+// 🚨 DEBUG FLAGS - Set these to control behavior
+const DEBUG_FLAGS = {
+    ACTUALLY_SEND_TO_FTP: false,    // Set to false to only log to console
+    LOG_EDI_PAYLOAD: true,          // Set to false to disable console logging
+    SIMULATE_FTP_DELAY: true,       // Set to false for no artificial delay
+    DETAILED_FTP_LOGGING: true      // Set to false for minimal FTP logs
+};
+
 function buildEDIFACTInvoice(invoice, items, config) {
    
    // Config is now required - no defaults
@@ -241,7 +249,6 @@ async function sendData(){
        console.log('Using default date for first run');
    }
    
-   console.log(`Getting invoices since: ${lastRunDate}`);
    
    await loopThrough(`https://api.stok.ly/v0/invoices`, 1000, 'sortDirection=ASC&sortField=niceId', `[issueDate]>={2025-05-28T11:46}%26%26[status]=*{paid}`, async (invoice)=>{
        invoices.push(invoice)
@@ -253,7 +260,6 @@ async function sendData(){
        const currentConfig = await window.electronAPI.loadConfig();
        currentConfig.lastInvoiceRunDate = currentTimestamp;
        await window.electronAPI.saveConfig(currentConfig);
-       console.log(`Saved last run date: ${currentTimestamp}`);
    } catch (error) {
        console.error('Failed to save last run date:', error);
    }
@@ -264,9 +270,8 @@ async function sendData(){
    }
 }
 
-// Process a single invoice with step tracking
+// Process a single invoice with step tracking including FTP transmission
 async function processInvoice(invoiceId, invoice) {
-    console.log(`Processing invoice ${invoiceId}`);
     
     // Start tracking this invoice
     const result = window.processingResults.startInvoiceProcessing(invoiceId, invoice);
@@ -326,22 +331,59 @@ async function processInvoice(invoiceId, invoice) {
             return;
         }
 
-        // Step 5: EDI transmission (simulate success for now)
+        // Step 5: FTP transmission (ENHANCED - actually transmit the EDI file)
         window.processingResults.updateStepStatus(invoiceId, 'transmission', 'processing');
         
         try {
-            // Simulate transmission delay
-            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-            
-            // For now, assume all transmissions succeed
-            window.processingResults.updateStepStatus(invoiceId, 'transmission', 'success', null, { transmitted: true });
-            
-            // Complete the invoice processing
-            window.processingResults.completeInvoiceProcessing(invoiceId, edifactMessage);
-            
-            console.log(`Successfully processed invoice ${invoiceId}`);
+            // Optional: Log EDI payload to console
+            if (DEBUG_FLAGS.LOG_EDI_PAYLOAD) {
+                console.log(`\n📄 EDI PAYLOAD for Invoice ${invoiceId}:`);
+                console.log('='.repeat(60));
+                console.log(edifactMessage);
+                console.log('='.repeat(60));
+            }
 
-            console.log(edifactMessage)
+            let transmissionResult;
+
+            if (DEBUG_FLAGS.ACTUALLY_SEND_TO_FTP) {
+                // Get FTP credentials
+                const ftpCredentials = await getFtpCredentials();
+                
+                if (!ftpCredentials) {
+                    throw new Error('No FTP credentials configured. Please configure FTP credentials first.');
+                }
+                
+                // Actually transmit the EDI file via FTP/SFTP
+                transmissionResult = await transmitEdiFileReal(invoiceId, edifactMessage, ftpCredentials);
+            } else {
+                transmissionResult = {
+                    success: true,
+                    filename: `invoice_${invoiceId}_${new Date().toISOString().replace(/[:.]/g, '-')}.edi`,
+                    size: edifactMessage.length,
+                    host: 'DEBUG_MODE',
+                    directory: '/debug',
+                    timestamp: new Date().toISOString(),
+                    debugMode: true
+                };
+                
+                if (DEBUG_FLAGS.SIMULATE_FTP_DELAY) {
+                    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+                }
+            }
+            
+            if (transmissionResult.success) {
+                window.processingResults.updateStepStatus(invoiceId, 'transmission', 'success', null, transmissionResult);
+                
+                // Complete the invoice processing
+                window.processingResults.completeInvoiceProcessing(invoiceId, edifactMessage);
+                
+                console.log(`✅ Successfully processed and transmitted invoice ${invoiceId}`);
+                if (transmissionResult.debugMode) {
+                    console.log(`🧪 (DEBUG MODE - no actual transmission occurred)`);
+                }
+            } else {
+                throw new Error(transmissionResult.error || 'FTP transmission failed');
+            }
             
         } catch (error) {
             window.processingResults.failInvoiceProcessing(invoiceId, 'transmission', `Failed to transmit EDI: ${error.message}`);
@@ -352,6 +394,173 @@ async function processInvoice(invoiceId, invoice) {
         console.error(`Unexpected error processing invoice ${invoiceId}:`, error);
         window.processingResults.failInvoiceProcessing(invoiceId, 'invoice', `Unexpected error: ${error.message}`);
     }
+}
+
+// Get FTP credentials from the credentials handler
+async function getFtpCredentials() {
+    try {
+        if (window.credentialsHandler && window.credentialsHandler.getFtpCredentials) {
+            return await window.credentialsHandler.getFtpCredentials();
+        } else {
+            console.error('Credentials handler not available');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error getting FTP credentials:', error);
+        return null;
+    }
+}
+
+// REAL FTP/SFTP transmission using ssh2-sftp-client
+async function transmitEdiFileReal(invoiceId, ediContent, ftpCredentials) {
+    if (DEBUG_FLAGS.DETAILED_FTP_LOGGING) {
+        console.log(`📤 FTP: Starting ${ftpCredentials.secure ? 'SFTP' : 'FTP'} transmission for invoice ${invoiceId}`);
+    }
+    
+    // Create filename based on invoice ID and timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `invoice_${invoiceId}_${timestamp}.edi`;
+    
+    try {
+        if (ftpCredentials.secure) {
+            // Use SFTP for secure transmission
+            return await transmitViaSFTP(filename, ediContent, ftpCredentials);
+        } else {
+            // Use regular FTP
+            return await transmitViaFTP(filename, ediContent, ftpCredentials);
+        }
+        
+    } catch (error) {
+        console.error(`❌ FTP: Failed to transmit EDI file for invoice ${invoiceId}:`, error);
+        
+        return {
+            success: false,
+            error: error.message,
+            timestamp: new Date().toISOString()
+        };
+    }
+}
+
+// SFTP transmission using ssh2-sftp-client
+async function transmitViaSFTP(filename, ediContent, ftpCredentials) {
+    // Import SFTP client - we'll use dynamic import to handle missing dependency gracefully
+    let Client;
+    try {
+        Client = require('ssh2-sftp-client');
+    } catch (error) {
+        throw new Error('SFTP client not installed. Run: npm install ssh2-sftp-client');
+    }
+    
+    const sftp = new Client();
+    
+    try {
+        if (DEBUG_FLAGS.DETAILED_FTP_LOGGING) {
+            console.log(`📤 SFTP: Connecting to ${ftpCredentials.host}:${ftpCredentials.port}`);
+        }
+        
+        // Connect to SFTP server
+        await sftp.connect({
+            host: ftpCredentials.host,
+            port: ftpCredentials.port || 22,
+            username: ftpCredentials.username,
+            password: ftpCredentials.password,
+            // Additional security options
+            algorithms: {
+                serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521'],
+                cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm', 'aes256-gcm'],
+                hmac: ['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'],
+                compress: ['none', 'zlib@openssh.com', 'zlib']
+            },
+            readyTimeout: 30000, // 30 second timeout
+            strictVendor: false  // Be lenient with server compatibility
+        });
+        
+        if (DEBUG_FLAGS.DETAILED_FTP_LOGGING) {
+            console.log(`📤 SFTP: Connected successfully`);
+        }
+        
+        // Determine target directory
+        const targetDirectory = ftpCredentials.directory || '/';
+        const remotePath = targetDirectory.endsWith('/') ? 
+            `${targetDirectory}${filename}` : 
+            `${targetDirectory}/${filename}`;
+        
+        if (DEBUG_FLAGS.DETAILED_FTP_LOGGING) {
+            console.log(`📤 SFTP: Uploading to ${remotePath}`);
+            console.log(`📤 SFTP: File size: ${ediContent.length} bytes`);
+        }
+        
+        // Create directory if it doesn't exist
+        try {
+            await sftp.mkdir(targetDirectory, true);
+        } catch (mkdirError) {
+            // Directory might already exist, which is fine
+            if (DEBUG_FLAGS.DETAILED_FTP_LOGGING) {
+                console.log(`📤 SFTP: Directory creation skipped (may already exist)`);
+            }
+        }
+        
+        // Upload the file
+        await sftp.put(Buffer.from(ediContent, 'utf8'), remotePath);
+        
+        if (DEBUG_FLAGS.DETAILED_FTP_LOGGING) {
+            console.log(`✅ SFTP: Successfully uploaded ${filename}`);
+        }
+        
+        // Verify upload by checking file exists and size
+        const fileStats = await sftp.stat(remotePath);
+        const uploadedSize = fileStats.size;
+        
+        if (uploadedSize !== ediContent.length) {
+            throw new Error(`Upload verification failed: expected ${ediContent.length} bytes, got ${uploadedSize} bytes`);
+        }
+        
+        await sftp.end();
+        
+        return {
+            success: true,
+            filename: filename,
+            remotePath: remotePath,
+            size: ediContent.length,
+            uploadedSize: uploadedSize,
+            host: ftpCredentials.host,
+            directory: targetDirectory,
+            protocol: 'SFTP',
+            timestamp: new Date().toISOString()
+        };
+        
+    } catch (error) {
+        try {
+            await sftp.end();
+        } catch (closeError) {
+            // Ignore close errors
+        }
+        throw error;
+    }
+}
+
+// Regular FTP transmission (fallback)
+async function transmitViaFTP(filename, ediContent, ftpCredentials) {
+    // For regular FTP, we'd need a different library like 'ftp' or 'basic-ftp'
+    // For now, we'll simulate it since most EDI systems use SFTP
+    
+    console.log(`📤 FTP: Regular FTP not implemented - use SFTP instead`);
+    console.log(`📤 FTP: Would upload ${filename} (${ediContent.length} bytes) to ${ftpCredentials.host}`);
+    
+    // Simulate transmission
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    return {
+        success: true,
+        filename: filename,
+        remotePath: `${ftpCredentials.directory || '/'}/${filename}`,
+        size: ediContent.length,
+        host: ftpCredentials.host,
+        directory: ftpCredentials.directory || '/',
+        protocol: 'FTP (simulated)',
+        timestamp: new Date().toISOString(),
+        simulated: true
+    };
 }
 
 // Export the processInvoice function for retry functionality

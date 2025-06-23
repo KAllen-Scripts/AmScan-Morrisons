@@ -79,8 +79,6 @@ async function getAccessToken() {
         // Parse the ISO string into a timestamp
         const expiryTime = new Date(data.data.authenticationResult.expiry).getTime();
         tokenExpirationTime = expiryTime;
-
-        console.log('Access token obtained successfully');
     } catch (error) {
         console.error("Error fetching access token:", error);
         throw error;
@@ -177,8 +175,6 @@ async function initializeStoklyAPI(config) {
     if (config.environment) {
         environment = config.environment;
     }
-    
-    console.log('Stokly API initialized');
     
     // Start token replenishment in background
     replenishTokens();

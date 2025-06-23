@@ -1,5 +1,5 @@
-// Permanent Credentials Handler for Electron App
-// Credentials stored permanently until manually cleared - no expiration
+// Enhanced Credentials Handler for Sync Tool
+// Manages both API and FTP credentials with unique storage keys to avoid conflicts
 
 class SecureCredentialsManager {
     constructor() {
@@ -116,8 +116,6 @@ class SecureCredentialsManager {
      */
     lock(reason = 'Manual lock') {
         this.isLocked = true;
-        
-        // Clear all credentials when locked
         this.clearAll(true);
     }
 
@@ -242,6 +240,7 @@ class SecureCredentialsManager {
 
 class CredentialsHandler {
     constructor() {
+        // API Credentials elements
         this.credentialsBtn = document.getElementById('credentialsBtn');
         this.credentialsModal = document.getElementById('credentialsModal');
         this.closeModal = document.getElementById('closeModal');
@@ -252,6 +251,17 @@ class CredentialsHandler {
         this.statusIndicator = document.getElementById('statusIndicator');
         this.statusText = document.getElementById('statusText');
         
+        // FTP Credentials elements
+        this.ftpCredentialsBtn = document.getElementById('ftpCredentialsBtn');
+        this.ftpCredentialsModal = document.getElementById('ftpCredentialsModal');
+        this.closeFtpModal = document.getElementById('closeFtpModal');
+        this.ftpCredentialsForm = document.getElementById('ftpCredentialsForm');
+        this.saveFtpCredentials = document.getElementById('saveFtpCredentials');
+        this.clearFtpCredentials = document.getElementById('clearFtpCredentials');
+        this.showFtpPassword = document.getElementById('showFtpPassword');
+        this.ftpStatusIndicator = document.getElementById('ftpStatusIndicator');
+        this.ftpStatusText = document.getElementById('ftpStatusText');
+        
         // Initialize secure credentials manager (no expiration)
         this.secureManager = new SecureCredentialsManager();
         this.failureCount = 0;
@@ -260,15 +270,14 @@ class CredentialsHandler {
         window.appCredentials = new Proxy({}, {
             get: (target, prop) => {
                 if (prop === 'isLoaded') {
-                    return this.secureManager.has('apiCredentials');
+                    return this.secureManager.has('syncTool_apiCredentials');
                 }
                 
-                const creds = this.secureManager.get('apiCredentials');
+                const creds = this.secureManager.get('syncTool_apiCredentials');
                 return creds ? creds[prop] : null;
             },
             
             set: (target, prop, value) => {
-                // Don't allow direct setting, must go through secure methods
                 return false;
             }
         });
@@ -282,96 +291,159 @@ class CredentialsHandler {
     }
 
     setupEventListeners() {
-        // Open modal
-        this.credentialsBtn.addEventListener('click', () => this.openModal());
-        
-        // Close modal
-        this.closeModal.addEventListener('click', () => this.closeModalHandler());
+        // API Credentials Modal
+        this.credentialsBtn.addEventListener('click', () => this.openApiModal());
+        this.closeModal.addEventListener('click', () => this.closeApiModalHandler());
         this.credentialsModal.addEventListener('click', (e) => {
             if (e.target === this.credentialsModal) {
-                this.closeModalHandler();
+                this.closeApiModalHandler();
             }
         });
         
-        // Handle Escape key
+        // FTP Credentials Modal
+        this.ftpCredentialsBtn.addEventListener('click', () => this.openFtpModal());
+        this.closeFtpModal.addEventListener('click', () => this.closeFtpModalHandler());
+        this.ftpCredentialsModal.addEventListener('click', (e) => {
+            if (e.target === this.ftpCredentialsModal) {
+                this.closeFtpModalHandler();
+            }
+        });
+        
+        // Handle Escape key for both modals
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.credentialsModal.classList.contains('show')) {
-                this.closeModalHandler();
+            if (e.key === 'Escape') {
+                if (this.credentialsModal.classList.contains('show')) {
+                    this.closeApiModalHandler();
+                }
+                if (this.ftpCredentialsModal.classList.contains('show')) {
+                    this.closeFtpModalHandler();
+                }
             }
         });
         
-        // Save credentials
-        this.saveCredentials.addEventListener('click', () => this.handleSaveCredentials());
-        
-        // Clear credentials
-        this.clearCredentials.addEventListener('click', () => this.handleClearCredentials());
-        
-        // Show/hide password
+        // API Credentials form handlers
+        this.saveCredentials.addEventListener('click', () => this.handleSaveApiCredentials());
+        this.clearCredentials.addEventListener('click', () => this.handleClearApiCredentials());
         this.showPassword.addEventListener('change', (e) => {
             const passwordInput = document.getElementById('password');
             passwordInput.type = e.target.checked ? 'text' : 'password';
         });
-        
-        // Handle form submission
         this.credentialsForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            this.handleSaveCredentials();
+            this.handleSaveApiCredentials();
+        });
+        
+        // FTP Credentials form handlers
+        this.saveFtpCredentials.addEventListener('click', () => this.handleSaveFtpCredentials());
+        this.clearFtpCredentials.addEventListener('click', () => this.handleClearFtpCredentials());
+        this.showFtpPassword.addEventListener('change', (e) => {
+            const passwordInput = document.getElementById('ftpPassword');
+            passwordInput.type = e.target.checked ? 'text' : 'password';
+        });
+        this.ftpCredentialsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleSaveFtpCredentials();
         });
     }
 
-    async openModal() {
-        // Check if credentials manager is locked
+    async openApiModal() {
         if (this.secureManager.isLocked) {
             this.showNotification('Credentials are locked. Please restart the application.', 'error');
             return;
         }
 
-        // Show modal
         this.credentialsModal.classList.add('show');
         
-        // Force window focus to fix Electron focus issues
         if (window.electronAPI && window.electronAPI.focusWindow) {
             await window.electronAPI.focusWindow();
         }
         
-        // Recreate inputs to ensure they work properly in Electron
         setTimeout(() => {
-            this.recreateInputs();
+            this.recreateApiInputs();
         }, 50);
         
-        // Load existing credentials
-        this.loadCredentialsToForm().catch(error => {
-            console.error('Error loading credentials to form:', error);
+        this.loadApiCredentialsToForm().catch(error => {
+            console.error('Error loading API credentials to form:', error);
         });
     }
 
-    recreateInputs() {
-        // Get current values before recreating
+    async openFtpModal() {
+        if (this.secureManager.isLocked) {
+            this.showNotification('Credentials are locked. Please restart the application.', 'error');
+            return;
+        }
+
+        this.ftpCredentialsModal.classList.add('show');
+        
+        if (window.electronAPI && window.electronAPI.focusWindow) {
+            await window.electronAPI.focusWindow();
+        }
+        
+        setTimeout(() => {
+            this.recreateFtpInputs();
+        }, 50);
+        
+        this.loadFtpCredentialsToForm().catch(error => {
+            console.error('Error loading FTP credentials to form:', error);
+        });
+    }
+
+    recreateApiInputs() {
         const usernameValue = document.getElementById('username').value;
         const passwordValue = document.getElementById('password').value;
         const accountKeyValue = document.getElementById('accountKey').value;
         const showPasswordChecked = document.getElementById('showPassword').checked;
         
-        // Recreate each input to reset Electron's internal state
         this.recreateInput('username', usernameValue);
         this.recreateInput('password', passwordValue, showPasswordChecked ? 'text' : 'password');
         this.recreateInput('accountKey', accountKeyValue);
         
-        // Reattach show password functionality
         const showPasswordCheckbox = document.getElementById('showPassword');
         showPasswordCheckbox.addEventListener('change', (e) => {
             const passwordInput = document.getElementById('password');
             passwordInput.type = e.target.checked ? 'text' : 'password';
         });
         
-        // Add manual input handling for Electron compatibility
         this.addInputHandlers('username');
         this.addInputHandlers('password');
         this.addInputHandlers('accountKey');
         
-        // Focus on the first input
         setTimeout(() => {
             document.getElementById('username').focus();
+        }, 10);
+    }
+
+    recreateFtpInputs() {
+        const hostValue = document.getElementById('ftpHost').value;
+        const portValue = document.getElementById('ftpPort').value;
+        const usernameValue = document.getElementById('ftpUsername').value;
+        const passwordValue = document.getElementById('ftpPassword').value;
+        const directoryValue = document.getElementById('ftpDirectory').value;
+        const secureChecked = document.getElementById('ftpSecure').checked;
+        const showPasswordChecked = document.getElementById('showFtpPassword').checked;
+        
+        this.recreateInput('ftpHost', hostValue);
+        this.recreateInput('ftpPort', portValue);
+        this.recreateInput('ftpUsername', usernameValue);
+        this.recreateInput('ftpPassword', passwordValue, showPasswordChecked ? 'text' : 'password');
+        this.recreateInput('ftpDirectory', directoryValue);
+        
+        document.getElementById('ftpSecure').checked = secureChecked;
+        
+        const showPasswordCheckbox = document.getElementById('showFtpPassword');
+        showPasswordCheckbox.addEventListener('change', (e) => {
+            const passwordInput = document.getElementById('ftpPassword');
+            passwordInput.type = e.target.checked ? 'text' : 'password';
+        });
+        
+        this.addInputHandlers('ftpHost');
+        this.addInputHandlers('ftpPort');
+        this.addInputHandlers('ftpUsername');
+        this.addInputHandlers('ftpPassword');
+        this.addInputHandlers('ftpDirectory');
+        
+        setTimeout(() => {
+            document.getElementById('ftpHost').focus();
         }, 10);
     }
 
@@ -386,9 +458,7 @@ class CredentialsHandler {
     addInputHandlers(inputId) {
         const input = document.getElementById(inputId);
         
-        // Handle character input manually for Electron compatibility
         input.addEventListener('keydown', (e) => {
-            // Handle printable characters
             if (e.key && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
                 e.preventDefault();
                 
@@ -396,17 +466,12 @@ class CredentialsHandler {
                 const end = input.selectionEnd;
                 const currentValue = input.value;
                 
-                // Insert character at cursor position
                 const newValue = currentValue.substring(0, start) + e.key + currentValue.substring(end);
                 input.value = newValue;
                 
-                // Set cursor position after the inserted character
                 input.setSelectionRange(start + 1, start + 1);
-                
-                // Trigger input event
                 input.dispatchEvent(new Event('input', { bubbles: true }));
             }
-            // Handle backspace
             else if (e.key === 'Backspace') {
                 e.preventDefault();
                 
@@ -415,21 +480,17 @@ class CredentialsHandler {
                 const currentValue = input.value;
                 
                 if (start === end && start > 0) {
-                    // Delete character before cursor
                     const newValue = currentValue.substring(0, start - 1) + currentValue.substring(end);
                     input.value = newValue;
                     input.setSelectionRange(start - 1, start - 1);
                 } else if (start !== end) {
-                    // Delete selected text
                     const newValue = currentValue.substring(0, start) + currentValue.substring(end);
                     input.value = newValue;
                     input.setSelectionRange(start, start);
                 }
                 
-                // Trigger input event
                 input.dispatchEvent(new Event('input', { bubbles: true }));
             }
-            // Handle delete
             else if (e.key === 'Delete') {
                 e.preventDefault();
                 
@@ -438,69 +499,84 @@ class CredentialsHandler {
                 const currentValue = input.value;
                 
                 if (start === end && start < currentValue.length) {
-                    // Delete character after cursor
                     const newValue = currentValue.substring(0, start) + currentValue.substring(end + 1);
                     input.value = newValue;
                     input.setSelectionRange(start, start);
                 } else if (start !== end) {
-                    // Delete selected text
                     const newValue = currentValue.substring(0, start) + currentValue.substring(end);
                     input.value = newValue;
                     input.setSelectionRange(start, start);
                 }
                 
-                // Trigger input event
                 input.dispatchEvent(new Event('input', { bubbles: true }));
             }
         });
     }
 
-    closeModalHandler() {
+    closeApiModalHandler() {
         this.credentialsModal.classList.remove('show');
         this.credentialsForm.reset();
         document.getElementById('password').type = 'password';
         document.getElementById('showPassword').checked = false;
     }
 
-    async loadCredentialsToForm() {
+    closeFtpModalHandler() {
+        this.ftpCredentialsModal.classList.remove('show');
+        this.ftpCredentialsForm.reset();
+        document.getElementById('ftpPassword').type = 'password';
+        document.getElementById('showFtpPassword').checked = false;
+    }
+
+    async loadApiCredentialsToForm() {
         try {
-            const credentials = await this.getDecryptedCredentials();
+            const credentials = await this.getDecryptedCredentials('syncTool_apiCredentials');
             
             if (credentials) {
-                // Handle both old format (username/password) and new format (clientId/secretKey/accountKey)
                 if (credentials.clientId) {
-                    // New format
                     document.getElementById('username').value = credentials.clientId;
                     document.getElementById('password').value = credentials.secretKey || '';
                     document.getElementById('accountKey').value = credentials.accountKey || '';
                 } else if (credentials.username) {
-                    // Old format - migrate to new format
                     document.getElementById('username').value = credentials.username;
                     document.getElementById('password').value = credentials.password || '';
                     document.getElementById('accountKey').value = '';
                 }
             }
         } catch (error) {
-            console.error('Error loading credentials to form:', error);
+            console.error('Error loading API credentials to form:', error);
         }
     }
 
-    async handleSaveCredentials() {
+    async loadFtpCredentialsToForm() {
+        try {
+            const credentials = await this.getDecryptedCredentials('syncTool_ftpCredentials');
+            
+            if (credentials) {
+                document.getElementById('ftpHost').value = credentials.host || '';
+                document.getElementById('ftpPort').value = credentials.port || '22';
+                document.getElementById('ftpUsername').value = credentials.username || '';
+                document.getElementById('ftpPassword').value = credentials.password || '';
+                document.getElementById('ftpDirectory').value = credentials.directory || '';
+                document.getElementById('ftpSecure').checked = credentials.secure || false;
+            }
+        } catch (error) {
+            console.error('Error loading FTP credentials to form:', error);
+        }
+    }
+
+    async handleSaveApiCredentials() {
         const clientId = document.getElementById('username').value.trim();
         const secretKey = document.getElementById('password').value;
         const accountKey = document.getElementById('accountKey').value.trim();
 
-        // Enhanced validation
-        if (!this.validateCredentialFormat(clientId, secretKey, accountKey)) {
+        if (!this.validateApiCredentialFormat(clientId, secretKey, accountKey)) {
             return;
         }
 
         try {
-            // Save to persistent storage
-            await this.saveEncryptedCredentials(clientId, secretKey, accountKey);
+            await this.saveEncryptedCredentials('syncTool_apiCredentials', clientId, secretKey, accountKey);
             
-            // Store in secure memory manager permanently (no expiration)
-            this.secureManager.store('apiCredentials', {
+            this.secureManager.store('syncTool_apiCredentials', {
                 clientId: clientId,
                 secretKey: secretKey,
                 accountKey: accountKey
@@ -508,19 +584,57 @@ class CredentialsHandler {
                 sensitive: true
             });
             
-            this.updateCredentialsStatus(true);
-            this.closeModalHandler();
-            this.showNotification('Credentials saved permanently!', 'success');
-            this.failureCount = 0; // Reset failure count on success
+            this.updateApiCredentialsStatus(true);
+            this.closeApiModalHandler();
+            this.showNotification('API credentials saved permanently!', 'success');
+            this.failureCount = 0;
             
         } catch (error) {
-            console.error('Error saving credentials:', error);
-            this.showNotification('Error saving credentials', 'error');
+            console.error('Error saving API credentials:', error);
+            this.showNotification('Error saving API credentials', 'error');
             this.failureCount++;
         }
     }
 
-    validateCredentialFormat(clientId, secretKey, accountKey) {
+    async handleSaveFtpCredentials() {
+        const host = document.getElementById('ftpHost').value.trim();
+        const port = document.getElementById('ftpPort').value.trim() || '22';
+        const username = document.getElementById('ftpUsername').value.trim();
+        const password = document.getElementById('ftpPassword').value;
+        const directory = document.getElementById('ftpDirectory').value.trim();
+        const secure = document.getElementById('ftpSecure').checked;
+
+        if (!this.validateFtpCredentialFormat(host, port, username, password)) {
+            return;
+        }
+
+        try {
+            await this.saveEncryptedCredentials('syncTool_ftpCredentials', host, port, username, password, directory, secure);
+            
+            const credentialData = {
+                host: host,
+                port: parseInt(port),
+                username: username,
+                password: password,
+                directory: directory,
+                secure: secure
+            };
+            
+            this.secureManager.store('syncTool_ftpCredentials', credentialData, {
+                sensitive: true
+            });
+            
+            this.updateFtpCredentialsStatus(true);
+            this.closeFtpModalHandler();
+            this.showNotification('FTP credentials saved permanently!', 'success');
+            
+        } catch (error) {
+            console.error('Error saving FTP credentials:', error);
+            this.showNotification('Error saving FTP credentials', 'error');
+        }
+    }
+
+    validateApiCredentialFormat(clientId, secretKey, accountKey) {
         const errors = [];
         
         if (!clientId || clientId.length < 8) {
@@ -535,7 +649,6 @@ class CredentialsHandler {
             errors.push('Account Key must be at least 8 characters');
         }
         
-        // Check for common weak patterns
         if (secretKey && (secretKey.toLowerCase().includes('password') || secretKey.includes('123456'))) {
             errors.push('Secret Key appears to be weak');
         }
@@ -548,58 +661,121 @@ class CredentialsHandler {
         return true;
     }
 
-    async handleClearCredentials() {
-        if (confirm('Are you sure you want to clear stored credentials?')) {
+    validateFtpCredentialFormat(host, port, username, password) {
+        const errors = [];
+        
+        if (!host || host.length < 3) {
+            errors.push('Host is required');
+        }
+        
+        const portNum = parseInt(port);
+        if (!portNum || portNum < 1 || portNum > 65535) {
+            errors.push('Port must be between 1 and 65535');
+        }
+        
+        if (!username || username.length < 1) {
+            errors.push('Username is required');
+        }
+        
+        if (!password || password.length < 1) {
+            errors.push('Password is required');
+        }
+        
+        if (errors.length > 0) {
+            this.showNotification(errors.join('; '), 'error');
+            return false;
+        }
+        
+        return true;
+    }
+
+    async handleClearApiCredentials() {
+        if (confirm('Are you sure you want to clear stored API credentials?')) {
             try {
-                await this.clearStoredCredentials();
+                await this.clearStoredCredentials('syncTool_apiCredentials');
+                this.secureManager.remove('syncTool_apiCredentials');
                 
-                // Clear from secure manager
-                this.secureManager.clearAll();
-                
-                // Clear form inputs
                 document.getElementById('username').value = '';
                 document.getElementById('password').value = '';
                 document.getElementById('accountKey').value = '';
                 
-                this.updateCredentialsStatus(false);
-                this.closeModalHandler();
-                this.showNotification('Credentials cleared successfully!', 'success');
+                this.updateApiCredentialsStatus(false);
+                this.closeApiModalHandler();
+                this.showNotification('API credentials cleared successfully!', 'success');
                 
             } catch (error) {
-                console.error('Error clearing credentials:', error);
-                this.showNotification('Error clearing credentials', 'error');
+                console.error('Error clearing API credentials:', error);
+                this.showNotification('Error clearing API credentials', 'error');
             }
         }
     }
 
-    async saveEncryptedCredentials(clientId, secretKey, accountKey) {
-        const credentials = {
-            clientId: clientId,
-            secretKey: secretKey,
-            accountKey: accountKey,
-            timestamp: new Date().toISOString()
-        };
-
-        if (window.electronAPI && window.electronAPI.saveCredentials) {
-            // Use Electron's secure storage
-            await window.electronAPI.saveCredentials(credentials);
-        } else {
-            // Fallback to localStorage with basic encoding (not truly secure)
-            const encoded = btoa(JSON.stringify(credentials));
-            localStorage.setItem('appCredentials', encoded);
+    async handleClearFtpCredentials() {
+        if (confirm('Are you sure you want to clear stored FTP credentials?')) {
+            try {
+                await this.clearStoredCredentials('syncTool_ftpCredentials');
+                this.secureManager.remove('syncTool_ftpCredentials');
+                
+                document.getElementById('ftpHost').value = '';
+                document.getElementById('ftpPort').value = '22';
+                document.getElementById('ftpUsername').value = '';
+                document.getElementById('ftpPassword').value = '';
+                document.getElementById('ftpDirectory').value = '';
+                document.getElementById('ftpSecure').checked = false;
+                
+                this.updateFtpCredentialsStatus(false);
+                this.closeFtpModalHandler();
+                this.showNotification('FTP credentials cleared successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error clearing FTP credentials:', error);
+                this.showNotification('Error clearing FTP credentials', 'error');
+            }
         }
     }
 
-    async getDecryptedCredentials() {
+    async saveEncryptedCredentials(credentialType, ...args) {
+        let credentials;
+        
+        if (credentialType === 'syncTool_apiCredentials') {
+            const [clientId, secretKey, accountKey] = args;
+            credentials = {
+                clientId: clientId,
+                secretKey: secretKey,
+                accountKey: accountKey,
+                timestamp: new Date().toISOString()
+            };
+        } else if (credentialType === 'syncTool_ftpCredentials') {
+            const [host, port, username, password, directory, secure] = args;
+            credentials = {
+                host: host,
+                port: parseInt(port),
+                username: username,
+                password: password,
+                directory: directory,
+                secure: secure,
+                timestamp: new Date().toISOString()
+            };
+        } else {
+            throw new Error('Unknown credential type: ' + credentialType);
+        }
+
+        if (window.electronAPI && window.electronAPI.saveCredentials) {
+            await window.electronAPI.saveCredentials(credentialType, credentials);
+        } else {
+            const encoded = btoa(JSON.stringify(credentials));
+            localStorage.setItem(credentialType, encoded);
+        }
+    }
+
+    async getDecryptedCredentials(credentialType) {
         try {
             let credentials = null;
             
             if (window.electronAPI && window.electronAPI.loadCredentials) {
-                // Use Electron's secure storage
-                credentials = await window.electronAPI.loadCredentials();
+                credentials = await window.electronAPI.loadCredentials(credentialType);
             } else {
-                // Fallback to localStorage
-                const stored = localStorage.getItem('appCredentials');
+                const stored = localStorage.getItem(credentialType);
                 if (stored) {
                     credentials = JSON.parse(atob(stored));
                 }
@@ -612,77 +788,109 @@ class CredentialsHandler {
         }
     }
 
-    async clearStoredCredentials() {
+    async clearStoredCredentials(credentialType) {
         if (window.electronAPI && window.electronAPI.clearCredentials) {
-            await window.electronAPI.clearCredentials();
+            await window.electronAPI.clearCredentials(credentialType);
         } else {
-            localStorage.removeItem('appCredentials');
+            localStorage.removeItem(credentialType);
         }
     }
 
     async loadCredentialsOnStartup() {
         try {
-            const credentials = await this.getDecryptedCredentials();
+            // Load API credentials
+            const apiCredentials = await this.getDecryptedCredentials('syncTool_apiCredentials');
             
-            if (credentials) {
-                // Handle both old format and new format
+            if (apiCredentials) {
                 let credentialData;
-                if (credentials.clientId) {
-                    // New format
+                if (apiCredentials.clientId) {
                     credentialData = {
-                        clientId: credentials.clientId,
-                        secretKey: credentials.secretKey || '',
-                        accountKey: credentials.accountKey || ''
+                        clientId: apiCredentials.clientId,
+                        secretKey: apiCredentials.secretKey || '',
+                        accountKey: apiCredentials.accountKey || ''
                     };
-                } else if (credentials.username) {
-                    // Old format - convert to new format for backward compatibility
+                } else if (apiCredentials.username) {
                     credentialData = {
-                        clientId: credentials.username,
-                        secretKey: credentials.password || '',
+                        clientId: apiCredentials.username,
+                        secretKey: apiCredentials.password || '',
                         accountKey: ''
                     };
                 }
                 
                 if (credentialData && credentialData.clientId && credentialData.secretKey && credentialData.accountKey) {
-                    // Store in secure manager permanently (no expiration)
-                    this.secureManager.store('apiCredentials', credentialData, {
+                    this.secureManager.store('syncTool_apiCredentials', credentialData, {
                         sensitive: true
                     });
                     
-                    this.updateCredentialsStatus(true);
+                    this.updateApiCredentialsStatus(true);
                     this.failureCount = 0;
                 } else {
-                    this.updateCredentialsStatus(false);
+                    this.updateApiCredentialsStatus(false);
                 }
             } else {
-                this.updateCredentialsStatus(false);
+                this.updateApiCredentialsStatus(false);
             }
+
+            // Load FTP credentials
+            const ftpCredentials = await this.getDecryptedCredentials('syncTool_ftpCredentials');
+            
+            if (ftpCredentials && ftpCredentials.host && ftpCredentials.username && ftpCredentials.password) {
+                const completeCredentials = {
+                    host: ftpCredentials.host,
+                    port: ftpCredentials.port || 22,
+                    username: ftpCredentials.username,
+                    password: ftpCredentials.password,
+                    directory: ftpCredentials.directory || '',
+                    secure: ftpCredentials.secure || false,
+                    timestamp: ftpCredentials.timestamp || new Date().toISOString()
+                };
+                
+                this.secureManager.store('syncTool_ftpCredentials', completeCredentials, {
+                    sensitive: true
+                });
+                
+                this.updateFtpCredentialsStatus(true);
+            } else {
+                this.updateFtpCredentialsStatus(false);
+            }
+            
         } catch (error) {
             console.error('Error loading credentials on startup:', error);
-            this.updateCredentialsStatus(false);
+            this.updateApiCredentialsStatus(false);
+            this.updateFtpCredentialsStatus(false);
             this.failureCount++;
             
-            // Lock manager on repeated failures
             if (this.failureCount > 3) {
                 this.secureManager.lock('Repeated credential loading failures');
             }
         }
     }
 
-    updateCredentialsStatus(hasCredentials) {
-        if (hasCredentials && this.secureManager.has('apiCredentials')) {
+    updateApiCredentialsStatus(hasCredentials) {
+        if (hasCredentials && this.secureManager.has('syncTool_apiCredentials')) {
             this.statusIndicator.className = 'status-indicator stored';
-            this.statusText.textContent = 'Credentials stored permanently';
-            this.credentialsBtn.innerHTML = '<span class="btn-icon">🔐</span>Update Credentials';
+            this.statusText.textContent = 'API credentials stored permanently';
+            this.credentialsBtn.innerHTML = '<span class="btn-icon">🔐</span>Update API Credentials';
         } else {
             this.statusIndicator.className = 'status-indicator empty';
-            this.statusText.textContent = 'No credentials stored';
-            this.credentialsBtn.innerHTML = '<span class="btn-icon">🔐</span>Manage Credentials';
+            this.statusText.textContent = 'No API credentials stored';
+            this.credentialsBtn.innerHTML = '<span class="btn-icon">🔐</span>Manage API Credentials';
+        }
+    }
+
+    updateFtpCredentialsStatus(hasCredentials) {
+        if (hasCredentials && this.secureManager.has('syncTool_ftpCredentials')) {
+            this.ftpStatusIndicator.className = 'status-indicator stored';
+            this.ftpStatusText.textContent = 'FTP credentials stored permanently';
+            this.ftpCredentialsBtn.innerHTML = '<span class="btn-icon">📁</span>Update FTP Credentials';
+        } else {
+            this.ftpStatusIndicator.className = 'status-indicator empty';
+            this.ftpStatusText.textContent = 'No FTP credentials stored';
+            this.ftpCredentialsBtn.innerHTML = '<span class="btn-icon">📁</span>Manage FTP Credentials';
         }
     }
 
     showNotification(message, type = 'info') {
-        // Reuse the existing result display system
         const resultElement = document.getElementById('result');
         const resultContentElement = document.getElementById('resultContent');
         
@@ -693,7 +901,6 @@ class CredentialsHandler {
         if (resultElement) {
             resultElement.style.display = 'block';
             
-            // Auto-hide success messages after 3 seconds
             if (type === 'success') {
                 setTimeout(() => {
                     resultElement.style.display = 'none';
@@ -702,16 +909,22 @@ class CredentialsHandler {
         }
     }
 
-    // Enhanced utility methods for external access
-    getCredentialStatus() {
-        return this.secureManager.getStatus('apiCredentials');
+    getCredentialStatus(credentialType) {
+        return this.secureManager.getStatus(credentialType);
     }
 
     getSecurityStats() {
         return this.secureManager.getStatistics();
     }
 
-    // Static utility methods for backward compatibility
+    async getApiCredentials() {
+        return this.secureManager.get('syncTool_apiCredentials');
+    }
+
+    async getFtpCredentials() {
+        return this.secureManager.get('syncTool_ftpCredentials');
+    }
+
     static getStoredCredentials() {
         return window.appCredentials;
     }

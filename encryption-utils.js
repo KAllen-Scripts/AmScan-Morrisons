@@ -99,23 +99,17 @@ class EncryptionUtils {
     }
 
     /**
-     * Encrypt credentials object
-     * @param {object} credentials - Username and password object
+     * Encrypt credentials object (handles any credential type)
+     * @param {object} credentials - Credentials object with any fields
      * @returns {object} - Encrypted credentials
      */
     encryptCredentials(credentials) {
-        const credentialsString = JSON.stringify({
-            clientId: credentials.clientId,
-            secretKey: credentials.secretKey,
-            accountKey: credentials.accountKey,
-            timestamp: credentials.timestamp
-        });
-        
+        const credentialsString = JSON.stringify(credentials);
         return this.encrypt(credentialsString);
     }
 
     /**
-     * Decrypt credentials object
+     * Decrypt credentials object (handles any credential type)
      * @param {object} encryptedCredentials - Encrypted credentials
      * @returns {object} - Decrypted credentials object
      */
