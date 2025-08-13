@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadCredentials: (credentialsType) => ipcRenderer.invoke('load-credentials', credentialsType),
     clearCredentials: (credentialsType) => ipcRenderer.invoke('clear-credentials', credentialsType),
     
+    // File transmission via SFTP through main process
+    transmitFile: (filename, content, ftpCredentials) => ipcRenderer.invoke('transmit-file', filename, content, ftpCredentials),
+    
     // Window focus management (for fixing Electron focus issues)
     focusWindow: () => ipcRenderer.invoke('focus-window'),
     

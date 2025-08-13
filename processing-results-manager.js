@@ -1,4 +1,4 @@
-// Processing Results Manager - Complete with Enhanced Animations
+// Processing Results Manager - Complete with Enhanced Animations and Better Error Handling
 
 class ProcessingResultsManager {
     constructor() {
@@ -67,13 +67,13 @@ class ProcessingResultsManager {
         
         // EDI Modal controls
         if (this.closeEdiModal) {
-            this.closeEdiModal.addEventListener('click', () => this.closeEdiModal());
+            this.closeEdiModal.addEventListener('click', () => this.closeEdiModalHandler());
         }
         
         if (this.ediModal) {
             this.ediModal.addEventListener('click', (e) => {
                 if (e.target === this.ediModal) {
-                    this.closeEdiModal();
+                    this.closeEdiModalHandler();
                 }
             });
         }
@@ -89,7 +89,7 @@ class ProcessingResultsManager {
         // Handle Escape key for EDI modal
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.ediModal && this.ediModal.classList.contains('show')) {
-                this.closeEdiModal();
+                this.closeEdiModalHandler();
             }
         });
     }
@@ -275,11 +275,13 @@ class ProcessingResultsManager {
         const result = results.find(r => r.invoiceId === invoiceId && r.status === 'processing');
         
         if (!result) {
+            console.warn(`No processing result found for invoice ${invoiceId} and step ${stepId}`);
             return;
         }
 
         const step = result.steps.find(s => s.id === stepId);
         if (!step) {
+            console.warn(`Step ${stepId} not found for invoice ${invoiceId}`);
             return;
         }
 
@@ -319,6 +321,7 @@ class ProcessingResultsManager {
         const result = results.find(r => r.invoiceId === invoiceId && r.status === 'processing');
         
         if (!result) {
+            console.warn(`No processing result found for invoice ${invoiceId} to complete`);
             return;
         }
 
@@ -344,6 +347,7 @@ class ProcessingResultsManager {
         const result = results.find(r => r.invoiceId === invoiceId && r.status === 'processing');
         
         if (!result) {
+            console.warn(`No processing result found for invoice ${invoiceId} to fail`);
             return;
         }
 
@@ -500,6 +504,7 @@ class ProcessingResultsManager {
         const currentRetries = this.retryAttempts.get(invoiceId) || 0;
         
         if (currentRetries >= this.maxRetries) {
+            console.warn(`Maximum retries (${this.maxRetries}) reached for invoice ${invoiceId}`);
             return false;
         }
 
@@ -529,10 +534,12 @@ class ProcessingResultsManager {
                 await window.processInvoice(invoiceId, result ? result.invoiceData : {});
                 return true;
             } catch (error) {
+                console.error(`Retry failed for invoice ${invoiceId}:`, error);
                 return false;
             }
         }
         
+        console.warn('processInvoice function not available for retry');
         return true;
     }
 
@@ -566,12 +573,17 @@ class ProcessingResultsManager {
 
     // Format time for display
     formatTime(date) {
-        return date.toLocaleTimeString('en-GB', { 
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
+        try {
+            return date.toLocaleTimeString('en-GB', { 
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        } catch (error) {
+            console.warn('Error formatting time:', error);
+            return new Date(date).toTimeString().substr(0, 8);
+        }
     }
 
     // Toggle result details
@@ -590,76 +602,112 @@ class ProcessingResultsManager {
     showEdiModal(uniqueKey) {
         const result = this.results[uniqueKey];
         if (!result || !result.ediPayload) {
+            console.warn(`No EDI payload found for result ${uniqueKey}`);
             return;
         }
 
-        this.ediInvoiceNumber.textContent = result.invoiceId;
-        this.ediPayload.textContent = result.ediPayload;
-        this.ediModal.classList.add('show');
+        if (this.ediInvoiceNumber) {
+            this.ediInvoiceNumber.textContent = result.invoiceId;
+        }
+        
+        if (this.ediPayload) {
+            this.ediPayload.textContent = result.ediPayload;
+        }
+        
+        if (this.ediModal) {
+            this.ediModal.classList.add('show');
+        }
         
         this.currentEdiUniqueKey = uniqueKey;
     }
 
     // Close EDI modal
-    closeEdiModal() {
-        this.ediModal.classList.remove('show');
+    closeEdiModalHandler() {
+        if (this.ediModal) {
+            this.ediModal.classList.remove('show');
+        }
         this.currentEdiUniqueKey = null;
     }
 
     // Copy EDI to clipboard
     async copyEdiToClipboard() {
-        if (!this.currentEdiUniqueKey) return;
+        if (!this.currentEdiUniqueKey) {
+            console.warn('No EDI content selected for copying');
+            return;
+        }
         
         const result = this.results[this.currentEdiUniqueKey];
-        if (!result || !result.ediPayload) return;
+        if (!result || !result.ediPayload) {
+            console.warn('No EDI payload available for copying');
+            return;
+        }
 
         try {
             await navigator.clipboard.writeText(result.ediPayload);
             
-            const originalText = this.copyEdi.textContent;
-            this.copyEdi.textContent = 'Copied!';
-            this.copyEdi.style.background = 'var(--light-success)';
-            this.copyEdi.style.color = 'var(--success-green)';
-            
-            setTimeout(() => {
-                this.copyEdi.textContent = originalText;
-                this.copyEdi.style.background = '';
-                this.copyEdi.style.color = '';
-            }, 2000);
+            if (this.copyEdi) {
+                const originalText = this.copyEdi.textContent;
+                this.copyEdi.textContent = 'Copied!';
+                this.copyEdi.style.background = 'var(--light-success)';
+                this.copyEdi.style.color = 'var(--success-green)';
+                
+                setTimeout(() => {
+                    this.copyEdi.textContent = originalText;
+                    this.copyEdi.style.background = '';
+                    this.copyEdi.style.color = '';
+                }, 2000);
+            }
             
         } catch (error) {
             console.error('Failed to copy EDI payload:', error);
-            alert('Failed to copy to clipboard');
+            alert('Failed to copy to clipboard. Please select and copy manually.');
         }
     }
 
     // Download EDI file
     downloadEdiFile() {
-        if (!this.currentEdiUniqueKey) return;
+        if (!this.currentEdiUniqueKey) {
+            console.warn('No EDI content selected for download');
+            return;
+        }
         
         const result = this.results[this.currentEdiUniqueKey];
-        if (!result || !result.ediPayload) return;
+        if (!result || !result.ediPayload) {
+            console.warn('No EDI payload available for download');
+            return;
+        }
 
-        const blob = new Blob([result.ediPayload], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `invoice_${result.invoiceId}_edi.txt`;
-        link.click();
-        
-        URL.revokeObjectURL(url);
+        try {
+            const blob = new Blob([result.ediPayload], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `invoice_${result.invoiceId}_edi.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to download EDI file:', error);
+            alert('Failed to download file');
+        }
     }
 
     // Clear all results
     clearAllResults() {
-        if (this.getResultsCount() === 0) return;
+        if (this.getResultsCount() === 0) {
+            console.log('No results to clear');
+            return;
+        }
         
         if (confirm('Are you sure you want to clear all processing results?')) {
             this.results = {};
             this.retryAttempts.clear();
             this.processingQueue.clear();
             this.updateDisplay();
+            console.log('All processing results cleared');
         }
     }
 
@@ -704,6 +752,6 @@ window.addTestResult = function(invoiceId) {
         processingResults.updateStepStatus(testId, 'items', 'success');
         processingResults.updateStepStatus(testId, 'saleorder', 'success');
         processingResults.updateStepStatus(testId, 'edi', 'success');
-        processingResults.completeInvoiceProcessing(testId, 'TEST EDI PAYLOAD');
+        processingResults.completeInvoiceProcessing(testId, 'TEST EDI PAYLOAD\nNAD+SU+5060089601212::9+TEST SUPPLIER LTD:Address Line:Address Line:Address Line:POSTCODE\'');
     }, 1000);
 };

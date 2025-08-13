@@ -5,8 +5,9 @@ const EncryptionUtils = require('./encryption-utils');
 
 let store;
 let encryptionUtils;
+let sftpClient; // Load SFTP client once at startup
 
-// Initialize the store with dynamic import
+// Initialize the store and required modules with dynamic import
 async function initializeStore() {
     if (!store) {
         const { default: Store } = await import('electron-store');
@@ -18,6 +19,15 @@ async function initializeStore() {
         
         // Initialize encryption utilities
         encryptionUtils = new EncryptionUtils();
+        
+        // Initialize SFTP client once at startup
+        try {
+            sftpClient = require('ssh2-sftp-client');
+            console.log('SFTP client loaded successfully');
+        } catch (error) {
+            console.warn('SFTP client not available:', error.message);
+            sftpClient = null;
+        }
     }
     return store;
 }
@@ -174,6 +184,79 @@ async function setupIPCHandlers() {
             console.error('Error clearing credentials:', error);
             throw error;
         }
+    });
+
+    // File transmission handler using pre-loaded SFTP client
+    ipcMain.handle('transmit-file', async (event, filename, content, ftpCredentials) => {
+        // Check if SFTP client is available
+        if (!sftpClient) {
+            throw new Error('SFTP client not available. Please install ssh2-sftp-client: npm install ssh2-sftp-client');
+        }
+
+        // Create new SFTP instance
+        const sftp = new sftpClient();
+        
+        console.log(`📤 SFTP: Connecting to ${ftpCredentials.host}:${ftpCredentials.port}`);
+        
+        // Connect to SFTP server - let this crash if it fails
+        await sftp.connect({
+            host: ftpCredentials.host,
+            port: ftpCredentials.port || 22,
+            username: ftpCredentials.username,
+            password: ftpCredentials.password,
+            algorithms: {
+                serverHostKey: ['ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521'],
+                cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm', 'aes256-gcm'],
+                hmac: ['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1'],
+                compress: ['none', 'zlib@openssh.com', 'zlib']
+            },
+            readyTimeout: 30000,
+            strictVendor: false
+        });
+        
+        console.log(`📤 SFTP: Connected successfully`);
+        
+        // Determine target directory and remote path
+        const targetDirectory = ftpCredentials.directory || '/';
+        const remotePath = targetDirectory.endsWith('/') ? 
+            `${targetDirectory}${filename}` : 
+            `${targetDirectory}/${filename}`;
+        
+        console.log(`📤 SFTP: Uploading to ${remotePath}`);
+        console.log(`📤 SFTP: File size: ${content.length} bytes`);
+        
+        // Create directory if needed - let minor errors slide
+        await sftp.mkdir(targetDirectory, true).catch(() => {
+            // Directory might already exist, which is fine
+            console.log(`📤 SFTP: Directory creation skipped (may already exist)`);
+        });
+        
+        // Upload the file - let this crash if it fails
+        await sftp.put(Buffer.from(content, 'utf8'), remotePath);
+        
+        // Verify upload by checking file exists and size - let this crash if it fails
+        const fileStats = await sftp.stat(remotePath);
+        const uploadedSize = fileStats.size;
+        
+        if (uploadedSize !== content.length) {
+            throw new Error(`Upload verification failed: expected ${content.length} bytes, got ${uploadedSize} bytes`);
+        }
+        
+        await sftp.end();
+        
+        console.log(`✅ SFTP: Successfully uploaded ${filename}`);
+        
+        return {
+            success: true,
+            filename: filename,
+            remotePath: remotePath,
+            size: content.length,
+            uploadedSize: uploadedSize,
+            host: ftpCredentials.host,
+            directory: targetDirectory,
+            protocol: 'SFTP',
+            timestamp: new Date().toISOString()
+        };
     });
 
     // Force window focus

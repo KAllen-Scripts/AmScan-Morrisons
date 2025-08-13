@@ -61,7 +61,7 @@
                 <!-- FTP Credentials Button -->
                 <div class="credentials-section">
                     <button type="button" class="btn btn-secondary" id="ftpCredentialsBtn">
-                        <span class="btn-icon">📁</span>
+                        <span class="btn-icon">📡</span>
                         Manage FTP Credentials
                     </button>
                     <div class="credentials-status" id="ftpCredentialsStatus">
@@ -130,8 +130,10 @@
                     <div class="form-group">
                         <label class="form-label" for="supplierAddress">Supplier Address</label>
                         <input type="text" id="supplierAddress" name="supplierAddress" class="form-input" 
-                               value="firstName lastName:STREET:CITY:COUNTY:POSTCODE" required
+                               value="TEST SUPPLIER LTD:Address Line 1:Address Line 2:Address Line 3:POSTCODE" required
+                               placeholder="Company Name:Street:City:County:Postcode"
                                autocomplete="off" spellcheck="false" maxlength="200">
+                        <small class="form-help-text">Format: Company Name:Street:City:County:Postcode (separated by colons)</small>
                     </div>
 
                     <div class="form-group">
