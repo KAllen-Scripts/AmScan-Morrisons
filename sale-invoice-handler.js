@@ -68,13 +68,13 @@ const MORRISONS_VAT = '343475355';
 
 // 🚨 DEBUG FLAGS - Set these to control behavior
 const DEBUG_FLAGS = {
-    ACTUALLY_SEND_TO_FTP: true,    // Set to false to only log to console
+    ACTUALLY_SEND_TO_FTP: false,    // Set to false to only log to console
     LOG_EDI_PAYLOAD: true,          // Set to false to disable console logging
     SIMULATE_FTP_DELAY: false,       // Set to false for no artificial delay
     DETAILED_FTP_LOGGING: true      // Set to false for minimal FTP logs
 };
 
-function buildEDIFACTInvoice(invoice, items, config) {
+async function buildEDIFACTInvoice(invoice, items, config) {
    
    // Config is now required - no defaults
    
@@ -198,30 +198,34 @@ function buildEDIFACTInvoice(invoice, items, config) {
        segments.push(`DTM+${DTM_DUE_DATE_QUALIFIER}:${formatDate(invoice.dueDate, DTM_FORMAT_DATE)}:${DTM_FORMAT_DATE}`);
    }
    
-   // Detail Section - Line Items
-   items.forEach((item, index) => {
-       const lineNumber = index + 1;
-       
-       // LIN - Line Item
-       // FIX: Use a proper item code or generate one based on line number
-       const itemCode = item.barcode || item.sku || `ITEM${String(lineNumber).padStart(6, '0')}`;
-       segments.push(`LIN+${lineNumber}++${itemCode}:${LIN_BARCODE_OUTER}`);
-       
-       // QTY - Quantity
-       segments.push(`QTY+${QTY_INVOICED_QUALIFIER}:${item.quantity}:${QTY_UNIT_EACH}`);
-       
-       // MOA - Monetary Amount (Line Value)
-       segments.push(`MOA+${MOA_LINE_VALUE}:${formatAmount(item.price)}`);
-       
-       // PRI - Price Details
-       const unitPrice = item.price / item.quantity;
-       segments.push(`PRI+${PRI_NET_PRICE}:${formatAmount(unitPrice)}`);
-       
-       // TAX - Duty/Tax/Fee Details
-       const vatRate = calculateVATRate(item.price, item.tax);
-       const vatCategory = getVATCategory(vatRate);
-       segments.push(`TAX+${TAX_FUNCTION_QUALIFIER}+${TAX_TYPE_VAT}+++:::${vatRate}+${vatCategory}`);
-   });
+    // Detail Section - Line Items
+    for (const [index, item] of items.entries()) {
+        const lineNumber = index + 1;
+        
+        // LIN - Line Item
+        // Get actual barcode from API
+        const itemCode = await requester('get', `https://api.stok.ly/v0/items/${item.referenceId}/barcodes`).then((r)=>{
+            console.log(item)
+            console.log(r)
+            return r.data[0].barcode
+        });
+        segments.push(`LIN+${lineNumber}++${itemCode}:${LIN_BARCODE_OUTER}`);
+        
+        // QTY - Quantity
+        segments.push(`QTY+${QTY_INVOICED_QUALIFIER}:${item.quantity}:${QTY_UNIT_EACH}`);
+        
+        // MOA - Monetary Amount (Line Value)
+        segments.push(`MOA+${MOA_LINE_VALUE}:${formatAmount(item.price)}`);
+        
+        // PRI - Price Details
+        const unitPrice = item.price / item.quantity;
+        segments.push(`PRI+${PRI_NET_PRICE}:${formatAmount(unitPrice)}`);
+        
+        // TAX - Duty/Tax/Fee Details
+        const vatRate = calculateVATRate(item.price, item.tax);
+        const vatCategory = getVATCategory(vatRate);
+        segments.push(`TAX+${TAX_FUNCTION_QUALIFIER}+${TAX_TYPE_VAT}+++:::${vatRate}+${vatCategory}`);
+    }
    
    // Summary Section
    segments.push(`UNS+${UNS_SUMMARY_SECTION}`);
@@ -329,7 +333,7 @@ async function processInvoice(invoiceId, invoice) {
         
         let edifactMessage;
         try {
-            edifactMessage = buildEDIFACTInvoice(invoice, items, {
+            edifactMessage = await buildEDIFACTInvoice(invoice, items, {
                 senderGLN: document.getElementById('senderGLN').value,
                 receiverGLN: document.getElementById('receiverGLN').value,
                 buyerGLN: document.getElementById('buyerGLN').value,
