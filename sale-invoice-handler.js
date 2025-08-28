@@ -74,7 +74,7 @@ const DEBUG_FLAGS = {
     DETAILED_FTP_LOGGING: true      // Set to false for minimal FTP logs
 };
 
-async function buildEDIFACTInvoice(invoice, items, config) {
+async function buildEDIFACTInvoice(saleOrder, invoice, items, config) {
    
    // Config is now required - no defaults
    
@@ -152,14 +152,14 @@ async function buildEDIFACTInvoice(invoice, items, config) {
    
    // BGM - Beginning of Message
    // FIX: Convert saleOrderNiceId to string before calling padStart
-   const orderNumber = String(invoice.saleOrderNiceId || '').padStart(8, '0');
+   const orderNumber = String(invoice.invoiceNumber || '').padStart(8, '0');
    segments.push(`BGM+${BGM_DOCUMENT_TYPE_INVOICE}:::${BGM_DOCUMENT_NAME_MERCH}+${orderNumber}+${BGM_MESSAGE_FUNCTION}`);
    
    // DTM - Date/Time/Period (Invoice Date)
    segments.push(`DTM+${DTM_INVOICE_DATE_QUALIFIER}:${formatDate(invoice.issueDate)}:${DTM_FORMAT_DATETIME}`);
    
    // DTM - Tax Point Date
-   const taxDate = config.taxPointDate || invoice.issueDate;
+   const taxDate = invoice.dueDate;
    segments.push(`DTM+${DTM_TAX_POINT_QUALIFIER}:${formatDate(taxDate, DTM_FORMAT_DATE)}:${DTM_FORMAT_DATE}`);
    
    // RFF - Reference (Original Order Number)
@@ -180,8 +180,7 @@ async function buildEDIFACTInvoice(invoice, items, config) {
    segments.push(`RFF+${RFF_VAT_QUALIFIER}:${MORRISONS_VAT}`);
    
    // NAD - Name and Address (Delivery Point)
-   segments.push(`NAD+${NAD_DELIVERY_QUALIFIER}+${config.deliveryPointGLN}${NAD_EAN_AGENCY}+${config.deliveryPointName}:${config.deliveryPointAddress}`);
-   
+   segments.push(`NAD+${NAD_DELIVERY_QUALIFIER}+${config.deliveryPointGLN}${NAD_EAN_AGENCY}+${saleOrder.carrierReference}:${saleOrder.shippingAddressLine2.split(',')[0].trim()}:${saleOrder.shippingAddressLine2.split(',')[1].trim()}:${saleOrder.shippingAddressCity}:${saleOrder.shippingAddressRegion}`);
    // NAD - Name and Address (Supplier) - FIXED
    // Parse supplier address properly to avoid duplication
    const formattedSupplierAddress = parseSupplierAddress(config.supplierAddress);
@@ -333,18 +332,15 @@ async function processInvoice(invoiceId, invoice) {
         
         let edifactMessage;
         try {
-            edifactMessage = await buildEDIFACTInvoice(invoice, items, {
+            edifactMessage = await buildEDIFACTInvoice(saleOrder, invoice, items, {
                 senderGLN: document.getElementById('senderGLN').value,
                 receiverGLN: document.getElementById('receiverGLN').value,
                 buyerGLN: document.getElementById('buyerGLN').value,
                 deliveryPointGLN: document.getElementById('deliveryPointGLN').value,
-                deliveryPointName: document.getElementById('deliveryPointName').value,
-                deliveryPointAddress: document.getElementById('deliveryPointAddress').value,
                 supplierVAT: document.getElementById('supplierVAT').value,
                 supplierAddress: document.getElementById('supplierAddress').value,
                 internalVendorNumber: document.getElementById('internalVendorNumber').value,
                 interchangeRef: document.getElementById('interchangeRef').value,
-                taxPointDate: document.getElementById('taxPointDate').value || null,
                 paymentTerms: document.getElementById('paymentTerms').value,
                 vendorReference: invoice.saleOrderNiceId
             });
