@@ -180,7 +180,7 @@ async function buildEDIFACTInvoice(saleOrder, invoice, items, config) {
    segments.push(`RFF+${RFF_VAT_QUALIFIER}:${MORRISONS_VAT}`);
    
    // NAD - Name and Address (Delivery Point)
-   segments.push(`NAD+${NAD_DELIVERY_QUALIFIER}+${config.deliveryPointGLN}${NAD_EAN_AGENCY}+${saleOrder.carrierReference}:${saleOrder.shippingAddressLine2.split(',')[0].trim()}:${saleOrder.shippingAddressLine2.split(',')[1].trim()}:${saleOrder.shippingAddressCity}:${saleOrder.shippingAddressRegion}`);
+   segments.push(`NAD+${NAD_DELIVERY_QUALIFIER}+${config.deliveryPointGLN}${NAD_EAN_AGENCY}+${saleOrder.carrierReference}:${saleOrder.shippingAddressLine2.split(',')[0].trim().toUpperCase()}:${saleOrder.shippingAddressLine2.split(',')[1].trim().toUpperCase()}:${saleOrder.shippingAddressCity.toUpperCase()}:${saleOrder.shippingAddressRegion.toUpperCase()}`);
    // NAD - Name and Address (Supplier) - FIXED
    // Parse supplier address properly to avoid duplication
    const formattedSupplierAddress = parseSupplierAddress(config.supplierAddress);
