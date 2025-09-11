@@ -145,7 +145,7 @@ async function buildEDIFACTInvoice(saleOrder, invoice, items, config) {
    // UNB - Interchange Header
    const timestamp = formatDate(invoice.issueDate, DTM_FORMAT_DATE).substring(2) + ':' + 
                     formatDate(invoice.issueDate, DTM_FORMAT_DATETIME).substring(8, 12);
-   segments.push(`UNB+${UNB_SYNTAX_IDENTIFIER}+${config.senderGLN}${UNB_RECIPIENT_QUALIFIER}+${config.receiverGLN}${UNB_RECIPIENT_QUALIFIER}+${timestamp}+${config.interchangeRef}++${UNB_APPLICATION_REFERENCE}${UNB_PROCESSING_PRIORITY}`);
+   segments.push(`UNB+${UNB_SYNTAX_IDENTIFIER}+${config.senderGLN}${UNB_RECIPIENT_QUALIFIER}+${config.receiverGLN}${UNB_RECIPIENT_QUALIFIER}+${timestamp}+${saleOrder.niceId.padStart(7,'0')}++${UNB_APPLICATION_REFERENCE}${UNB_PROCESSING_PRIORITY}`);
    
    // UNH - Message Header
    segments.push(`UNH+1+${UNH_MESSAGE_TYPE}`);
@@ -252,7 +252,7 @@ async function buildEDIFACTInvoice(saleOrder, invoice, items, config) {
    segments.push(`UNT+${segmentCount}+1`);
    
    // UNZ - Interchange Trailer
-   segments.push(`UNZ+1+${config.interchangeRef}`);
+   segments.push(`UNZ+1+${saleOrder.niceId.padStart(7,'0')}`);
    
    // Join segments with ' (single quote) and newlines for readability
    return segments.map(segment => segment + "'").join('\n');
@@ -273,7 +273,7 @@ async function sendData(){
    }
    
    
-   await loopThrough(`https://api.stok.ly/v0/invoices`, 1000, 'sortDirection=ASC&sortField=niceId', `[niceId]=={17058}`, async (invoice)=>{
+   await loopThrough(`https://api.stok.ly/v0/invoices`, 1000, 'sortDirection=ASC&sortField=niceId', `[niceId]=={30942}||[niceId]=={30941}||[niceId]=={30888}||[niceId]=={30940}||[niceId]=={30939}||[niceId]=={30938}||[niceId]=={30936}||[niceId]=={30935}||[niceId]=={30934}||[niceId]=={30933}||[niceId]=={30932}||[niceId]=={30931}||[niceId]=={30930}||[niceId]=={30929}||[niceId]=={30928}||[niceId]=={30927}||[niceId]=={30926}||[niceId]=={30925}||[niceId]=={30887}||[niceId]=={30924}`, async (invoice)=>{
        invoices.push(invoice)
    });
    
@@ -340,7 +340,6 @@ async function processInvoice(invoiceId, invoice) {
                 supplierVAT: document.getElementById('supplierVAT').value,
                 supplierAddress: document.getElementById('supplierAddress').value,
                 internalVendorNumber: document.getElementById('internalVendorNumber').value,
-                interchangeRef: document.getElementById('interchangeRef').value,
                 paymentTerms: document.getElementById('paymentTerms').value,
                 vendorReference: invoice.saleOrderNiceId
             });

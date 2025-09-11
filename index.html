@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sync Tool</title>
-    
+
     <!-- Tightened Content Security Policy - Removed unsafe-inline and unsafe-eval -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
@@ -18,25 +19,27 @@
         form-action 'self';
         frame-ancestors 'none';
     ">
-    
+
     <!-- Additional security headers -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="DENY">
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-    
+
     <!-- Your CSS files -->
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Main Content Area -->
         <div class="main-content">
             <!-- Floating sidebar toggle button -->
-            <button type="button" class="floating-sidebar-toggle" id="floatingSidebarToggle" title="Toggle Processing Results">
+            <button type="button" class="floating-sidebar-toggle" id="floatingSidebarToggle"
+                title="Toggle Processing Results">
                 📊
             </button>
-            
+
             <div class="container">
                 <div class="task-status-container">
                     <label>Task Status:</label>
@@ -74,68 +77,56 @@
 
                     <div class="form-group">
                         <label class="form-label" for="senderGLN">Sender GLN</label>
-                        <input type="text" id="senderGLN" name="senderGLN" class="form-input" 
-                               value="5012246000008" required 
-                               pattern="[0-9]{13}" title="Must be 13 digits"
-                               autocomplete="off" spellcheck="false">
+                        <input type="text" id="senderGLN" name="senderGLN" class="form-input" value="5012246000008"
+                            required pattern="[0-9]{13}" title="Must be 13 digits" autocomplete="off"
+                            spellcheck="false">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="receiverGLN">Receiver GLN</label>
-                        <input type="text" id="receiverGLN" name="receiverGLN" class="form-input" 
-                               value="5013546229793" required 
-                               pattern="[0-9]{13}" title="Must be 13 digits"
-                               autocomplete="off" spellcheck="false">
+                        <input type="text" id="receiverGLN" name="receiverGLN" class="form-input" value="5013546229793"
+                            required pattern="[0-9]{13}" title="Must be 13 digits" autocomplete="off"
+                            spellcheck="false">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="buyerGLN">Buyer GLN (Morrisons)</label>
-                        <input type="text" id="buyerGLN" name="buyerGLN" class="form-input" 
-                               value="5010251000006" required 
-                               pattern="[0-9]{13}" title="Must be 13 digits"
-                               autocomplete="off" spellcheck="false">
-                        <small class="form-help-text">Morrisons' buyer GLN (can be same as or different from Receiver GLN)</small>
+                        <input type="text" id="buyerGLN" name="buyerGLN" class="form-input" value="5010251000006"
+                            required pattern="[0-9]{13}" title="Must be 13 digits" autocomplete="off"
+                            spellcheck="false">
+                        <small class="form-help-text">Morrisons' buyer GLN (can be same as or different from Receiver
+                            GLN)</small>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="deliveryPointGLN">Delivery Point GLN</label>
-                        <input type="text" id="deliveryPointGLN" name="deliveryPointGLN" class="form-input" 
-                               value="5010251000396" required 
-                               pattern="[0-9]{13}" title="Must be 13 digits"
-                               autocomplete="off" spellcheck="false">
+                        <input type="text" id="deliveryPointGLN" name="deliveryPointGLN" class="form-input"
+                            value="5010251000396" required pattern="[0-9]{13}" title="Must be 13 digits"
+                            autocomplete="off" spellcheck="false">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="supplierVAT">Supplier VAT</label>
-                        <input type="text" id="supplierVAT" name="supplierVAT" class="form-input" 
-                               value="GB987654321" required
-                               pattern="[A-Z]{2}[0-9]{9,12}" title="Format: GB123456789"
-                               autocomplete="off" spellcheck="false" maxlength="15">
+                        <input type="text" id="supplierVAT" name="supplierVAT" class="form-input" value="GB987654321"
+                            required pattern="[A-Z]{2}[0-9]{9,12}" title="Format: GB123456789" autocomplete="off"
+                            spellcheck="false" maxlength="15">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="supplierAddress">Supplier Address</label>
-                        <input type="text" id="supplierAddress" name="supplierAddress" class="form-input" 
-                               value="TEST SUPPLIER LTD:Address Line 1:Address Line 2:Address Line 3:POSTCODE" required
-                               placeholder="Company Name:Street:City:County:Postcode"
-                               autocomplete="off" spellcheck="false" maxlength="200">
-                        <small class="form-help-text">Format: Company Name:Street:City:County:Postcode (separated by colons)</small>
+                        <input type="text" id="supplierAddress" name="supplierAddress" class="form-input"
+                            value="TEST SUPPLIER LTD:Address Line 1:Address Line 2:Address Line 3:POSTCODE" required
+                            placeholder="Company Name:Street:City:County:Postcode" autocomplete="off" spellcheck="false"
+                            maxlength="200">
+                        <small class="form-help-text">Format: Company Name:Street:City:County:Postcode (separated by
+                            colons)</small>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="internalVendorNumber">Internal Vendor Number</label>
-                        <input type="text" id="internalVendorNumber" name="internalVendorNumber" class="form-input" 
-                               value="12345" required
-                               pattern="[0-9A-Za-z]{1,20}" title="Alphanumeric, max 20 characters"
-                               autocomplete="off" spellcheck="false" maxlength="20">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="interchangeRef">Interchange Reference</label>
-                        <input type="text" id="interchangeRef" name="interchangeRef" class="form-input" 
-                               value="000001" required
-                               pattern="[0-9A-Za-z]{1,20}" title="Alphanumeric, max 20 characters"
-                               autocomplete="off" spellcheck="false" maxlength="20">
+                        <input type="text" id="internalVendorNumber" name="internalVendorNumber" class="form-input"
+                            value="12345" required pattern="[0-9A-Za-z]{1,20}" title="Alphanumeric, max 20 characters"
+                            autocomplete="off" spellcheck="false" maxlength="20">
                     </div>
 
                     <div class="form-group">
@@ -188,13 +179,13 @@
                     <button type="button" class="btn btn-small sidebar-toggle" id="sidebarToggle">Hide</button>
                 </div>
             </div>
-            
+
             <div class="sidebar-content" id="sidebarContent">
                 <div class="no-results" id="noResults">
                     <p>No processing results yet.</p>
                     <p class="help-text">Results will appear here when invoices are processed.</p>
                 </div>
-                
+
                 <!-- Results will be dynamically added here -->
                 <div class="results-list" id="resultsList">
                     <!-- Dynamic results will appear here -->
@@ -204,7 +195,8 @@
     </div>
 
     <!-- EDI Payload Modal -->
-    <div class="modal-overlay" id="ediModal" tabindex="-1" role="dialog" aria-labelledby="ediModalTitle" aria-hidden="true">
+    <div class="modal-overlay" id="ediModal" tabindex="-1" role="dialog" aria-labelledby="ediModalTitle"
+        aria-hidden="true">
         <div class="modal edi-modal" tabindex="-1" role="document">
             <div class="modal-header">
                 <h3 id="ediModalTitle">EDI Payload - Invoice #<span id="ediInvoiceNumber"></span></h3>
@@ -223,7 +215,8 @@
     </div>
 
     <!-- API Credentials Modal -->
-    <div class="modal-overlay" id="credentialsModal" tabindex="-1" role="dialog" aria-labelledby="credentialsModalTitle" aria-hidden="true">
+    <div class="modal-overlay" id="credentialsModal" tabindex="-1" role="dialog" aria-labelledby="credentialsModalTitle"
+        aria-hidden="true">
         <div class="modal" tabindex="-1" role="document">
             <div class="modal-header">
                 <h3 id="credentialsModalTitle">Manage API Credentials</h3>
@@ -233,29 +226,23 @@
                 <form id="credentialsForm" novalidate>
                     <div class="form-group">
                         <label class="form-label" for="accountKey">Account Key</label>
-                        <input type="text" id="accountKey" name="accountKey" class="form-input" 
-                               placeholder="Enter account key" required tabindex="3"
-                               autocomplete="off" spellcheck="false" 
-                               minlength="8" maxlength="100"
-                               pattern="[A-Za-z0-9\-_\.]{8,100}" 
-                               title="8-100 characters, letters, numbers, hyphens, underscores, dots only">
+                        <input type="text" id="accountKey" name="accountKey" class="form-input"
+                            placeholder="Enter account key" required tabindex="3" autocomplete="off" spellcheck="false"
+                            minlength="8" maxlength="100" pattern="[A-Za-z0-9\-_\.]{8,100}"
+                            title="8-100 characters, letters, numbers, hyphens, underscores, dots only">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="username">Client ID</label>
-                        <input type="text" id="username" name="username" class="form-input" 
-                               placeholder="Enter client ID" required tabindex="1"
-                               autocomplete="off" spellcheck="false" 
-                               minlength="8" maxlength="100"
-                               pattern="[A-Za-z0-9\-_\.]{8,100}" 
-                               title="8-100 characters, letters, numbers, hyphens, underscores, dots only">
+                        <input type="text" id="username" name="username" class="form-input"
+                            placeholder="Enter client ID" required tabindex="1" autocomplete="off" spellcheck="false"
+                            minlength="8" maxlength="100" pattern="[A-Za-z0-9\-_\.]{8,100}"
+                            title="8-100 characters, letters, numbers, hyphens, underscores, dots only">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="password">Secret Key</label>
-                        <input type="password" id="password" name="password" class="form-input" 
-                               placeholder="Enter secret key" required tabindex="2"
-                               autocomplete="new-password" spellcheck="false" 
-                               minlength="16" maxlength="200"
-                               title="Minimum 16 characters required">
+                        <input type="password" id="password" name="password" class="form-input"
+                            placeholder="Enter secret key" required tabindex="2" autocomplete="new-password"
+                            spellcheck="false" minlength="16" maxlength="200" title="Minimum 16 characters required">
                     </div>
                     <div class="form-group">
                         <div class="form-checkbox">
@@ -266,14 +253,16 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="clearCredentials" tabindex="5">Clear Credentials</button>
+                <button type="button" class="btn btn-secondary" id="clearCredentials" tabindex="5">Clear
+                    Credentials</button>
                 <button type="button" class="btn" id="saveCredentials" tabindex="6">Save Credentials</button>
             </div>
         </div>
     </div>
 
     <!-- FTP Credentials Modal -->
-    <div class="modal-overlay" id="ftpCredentialsModal" tabindex="-1" role="dialog" aria-labelledby="ftpCredentialsModalTitle" aria-hidden="true">
+    <div class="modal-overlay" id="ftpCredentialsModal" tabindex="-1" role="dialog"
+        aria-labelledby="ftpCredentialsModalTitle" aria-hidden="true">
         <div class="modal" tabindex="-1" role="document">
             <div class="modal-header">
                 <h3 id="ftpCredentialsModalTitle">Manage FTP Credentials</h3>
@@ -283,33 +272,29 @@
                 <form id="ftpCredentialsForm" novalidate>
                     <div class="form-group">
                         <label class="form-label" for="ftpHost">FTP Host</label>
-                        <input type="text" id="ftpHost" name="ftpHost" class="form-input" 
-                               placeholder="ftp.example.com" required tabindex="1"
-                               autocomplete="off" spellcheck="false">
+                        <input type="text" id="ftpHost" name="ftpHost" class="form-input" placeholder="ftp.example.com"
+                            required tabindex="1" autocomplete="off" spellcheck="false">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="ftpPort">Port</label>
-                        <input type="text" id="ftpPort" name="ftpPort" class="form-input" 
-                               value="22" required tabindex="2"
-                               autocomplete="off" spellcheck="false">
+                        <input type="text" id="ftpPort" name="ftpPort" class="form-input" value="22" required
+                            tabindex="2" autocomplete="off" spellcheck="false">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="ftpUsername">Username</label>
-                        <input type="text" id="ftpUsername" name="ftpUsername" class="form-input" 
-                               placeholder="Enter username" required tabindex="3"
-                               autocomplete="off" spellcheck="false">
+                        <input type="text" id="ftpUsername" name="ftpUsername" class="form-input"
+                            placeholder="Enter username" required tabindex="3" autocomplete="off" spellcheck="false">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="ftpPassword">Password</label>
-                        <input type="password" id="ftpPassword" name="ftpPassword" class="form-input" 
-                               placeholder="Enter password" required tabindex="4"
-                               autocomplete="new-password" spellcheck="false">
+                        <input type="password" id="ftpPassword" name="ftpPassword" class="form-input"
+                            placeholder="Enter password" required tabindex="4" autocomplete="new-password"
+                            spellcheck="false">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="ftpDirectory">Directory</label>
-                        <input type="text" id="ftpDirectory" name="ftpDirectory" class="form-input" 
-                               placeholder="/path/to/files (optional)" tabindex="5"
-                               autocomplete="off" spellcheck="false">
+                        <input type="text" id="ftpDirectory" name="ftpDirectory" class="form-input"
+                            placeholder="/path/to/files (optional)" tabindex="5" autocomplete="off" spellcheck="false">
                     </div>
                     <div class="form-group">
                         <div class="form-checkbox">
@@ -326,7 +311,8 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="clearFtpCredentials" tabindex="8">Clear Credentials</button>
+                <button type="button" class="btn btn-secondary" id="clearFtpCredentials" tabindex="8">Clear
+                    Credentials</button>
                 <button type="button" class="btn" id="saveFtpCredentials" tabindex="9">Save Credentials</button>
             </div>
         </div>
@@ -340,17 +326,17 @@
     <script src="form-handler.js"></script>
     <script src="timer-task.js"></script>
     <script src="timer-manager.js"></script>
-    
+
     <!-- Security validation script -->
     <script>
         // Validate CSP compliance on load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Check for inline scripts (should be none)
             const inlineScripts = document.querySelectorAll('script:not([src])');
             if (inlineScripts.length > 1) { // Allow this validation script only
                 console.warn('Inline scripts detected - potential CSP violation');
             }
-            
+
             // Validate form inputs have proper security attributes
             const inputs = document.querySelectorAll('input[type="text"], input[type="password"]');
             inputs.forEach(input => {
@@ -358,9 +344,10 @@
                     console.warn(`Input ${input.id} missing security attributes`);
                 }
             });
-            
+
             console.log('Security validation completed');
         });
     </script>
 </body>
+
 </html>
