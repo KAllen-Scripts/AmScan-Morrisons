@@ -186,6 +186,45 @@ async function setupIPCHandlers() {
         }
     });
 
+    // CSV parsing handler
+    ipcMain.handle('parse-csv', async (event, csvText) => {
+        try {
+            const Papa = require('papaparse');
+            
+            return new Promise((resolve, reject) => {
+                Papa.parse(csvText, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    delimitersToGuess: [',', '\t', '|', ';'],
+                    complete: (results) => {
+                        if (results.errors && results.errors.length > 0) {
+                            console.warn('CSV parsing warnings:', results.errors);
+                        }
+                        
+                        // Clean headers (strip whitespace)
+                        const cleanedData = results.data.map(row => {
+                            const cleanedRow = {};
+                            Object.keys(row).forEach(key => {
+                                const cleanKey = key.trim();
+                                cleanedRow[cleanKey] = row[key];
+                            });
+                            return cleanedRow;
+                        });
+                        
+                        resolve(cleanedData);
+                    },
+                    error: (error) => {
+                        reject(new Error(`CSV parsing error: ${error.message}`));
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Error in CSV parsing handler:', error);
+            throw error;
+        }
+    });
+
     // File transmission handler using pre-loaded SFTP client
     ipcMain.handle('transmit-file', async (event, filename, content, ftpCredentials) => {
         // Check if SFTP client is available

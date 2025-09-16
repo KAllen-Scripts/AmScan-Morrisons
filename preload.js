@@ -19,6 +19,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // File transmission via SFTP through main process
     transmitFile: (filename, content, ftpCredentials) => ipcRenderer.invoke('transmit-file', filename, content, ftpCredentials),
     
+    // CSV parsing through main process
+    parseCSV: (csvText) => ipcRenderer.invoke('parse-csv', csvText),
+    
     // Window focus management (for fixing Electron focus issues)
     focusWindow: () => ipcRenderer.invoke('focus-window'),
     

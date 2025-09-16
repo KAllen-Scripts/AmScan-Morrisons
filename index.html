@@ -52,7 +52,7 @@
                 <!-- API Credentials Button -->
                 <div class="credentials-section">
                     <button type="button" class="btn btn-secondary" id="credentialsBtn">
-                        <span class="btn-icon">🔐</span>
+                        <span class="btn-icon">🔑</span>
                         Manage API Credentials
                     </button>
                     <div class="credentials-status" id="credentialsStatus">
@@ -71,6 +71,27 @@
                         <span class="status-indicator" id="ftpStatusIndicator">●</span>
                         <span id="ftpStatusText">No FTP credentials stored</span>
                     </div>
+                </div>
+
+                <!-- CSV Import Section -->
+                <div class="credentials-section">
+                    <button type="button" class="btn btn-secondary" id="importCSVBtn">
+                        <span class="btn-icon">📁</span>
+                        Import CSV File
+                    </button>
+                    <div class="csv-controls" id="csvControls" style="margin-top: 0.75rem; display: none;">
+                        <button type="button" class="btn btn-small btn-orange" id="clearCSVBtn" style="display: none;">
+                            Clear Data
+                        </button>
+                        <button type="button" class="btn btn-small" id="exportCSVBtn" style="display: none;">
+                            Export CSV
+                        </button>
+                    </div>
+                    <div class="csv-status" id="csvStatus" style="display: none;"></div>
+                    <div class="csv-info" id="csvInfo" style="display: none;"></div>
+                    
+                    <!-- Hidden file input -->
+                    <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
                 </div>
 
                 <form class="form" id="configForm">
@@ -177,6 +198,24 @@
                 <div class="sidebar-controls">
                     <button type="button" class="btn btn-small" id="clearResults">Clear All</button>
                     <button type="button" class="btn btn-small sidebar-toggle" id="sidebarToggle">Hide</button>
+                </div>
+            </div>
+
+            <!-- NEW: Filter Controls Section -->
+            <div class="sidebar-filters">
+                <div class="filter-section">
+                    <label class="filter-label">Show:</label>
+                    <div class="filter-buttons">
+                        <button type="button" class="filter-toggle" id="filterSuccess" data-filter="success">
+                            <span class="filter-icon">✅</span> Success (<span class="filter-count" id="countSuccess">0</span>)
+                        </button>
+                        <button type="button" class="filter-toggle" id="filterError" data-filter="error">
+                            <span class="filter-icon">❌</span> Failed (<span class="filter-count" id="countError">0</span>)
+                        </button>
+                        <button type="button" class="filter-toggle" id="filterManual" data-filter="manual">
+                            <span class="filter-icon">🔧</span> Manual (<span class="filter-count" id="countManual">0</span>)
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -326,6 +365,7 @@
     <script src="form-handler.js"></script>
     <script src="timer-task.js"></script>
     <script src="timer-manager.js"></script>
+    <script src="csv-data-manager.js"></script>
 
     <!-- Security validation script -->
     <script>
