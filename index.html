@@ -206,15 +206,36 @@
                 <div class="filter-section">
                     <label class="filter-label">Show:</label>
                     <div class="filter-buttons">
-                        <button type="button" class="filter-toggle" id="filterSuccess" data-filter="success">
-                            <span class="filter-icon">✅</span> Success (<span class="filter-count" id="countSuccess">0</span>)
-                        </button>
-                        <button type="button" class="filter-toggle" id="filterError" data-filter="error">
-                            <span class="filter-icon">❌</span> Failed (<span class="filter-count" id="countError">0</span>)
-                        </button>
-                        <button type="button" class="filter-toggle" id="filterManual" data-filter="manual">
-                            <span class="filter-icon">🔧</span> Manual (<span class="filter-count" id="countManual">0</span>)
-                        </button>
+                        <div class="filter-toggle" id="filterSuccess" data-filter="success">
+                            <div class="filter-toggle-switch">
+                                <div class="filter-toggle-slider"></div>
+                            </div>
+                            <div class="filter-toggle-content">
+                                <span class="filter-toggle-icon">✅</span>
+                                <span class="filter-toggle-label">Success</span>
+                                <span class="filter-count" id="countSuccess">0</span>
+                            </div>
+                        </div>
+                        <div class="filter-toggle" id="filterError" data-filter="error">
+                            <div class="filter-toggle-switch">
+                                <div class="filter-toggle-slider"></div>
+                            </div>
+                            <div class="filter-toggle-content">
+                                <span class="filter-toggle-icon">❌</span>
+                                <span class="filter-toggle-label">Failed</span>
+                                <span class="filter-count" id="countError">0</span>
+                            </div>
+                        </div>
+                        <div class="filter-toggle" id="filterManual" data-filter="manual">
+                            <div class="filter-toggle-switch">
+                                <div class="filter-toggle-slider"></div>
+                            </div>
+                            <div class="filter-toggle-content">
+                                <span class="filter-toggle-icon">🔧</span>
+                                <span class="filter-toggle-label">Manual</span>
+                                <span class="filter-count" id="countManual">0</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

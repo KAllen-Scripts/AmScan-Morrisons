@@ -32,10 +32,183 @@ async function initializeStore() {
     return store;
 }
 
+// NEW: Invoice tracking functionality
+async function setupInvoiceTracking() {
+    if (!store) await initializeStore();
+    
+    // Initialize processed invoices set if it doesn't exist
+    if (!store.has('processedInvoices')) {
+        store.set('processedInvoices', {
+            invoiceIds: [],
+            lastCleanup: new Date().toISOString(),
+            version: '1.0'
+        });
+        console.log('📋 Initialized invoice tracking system');
+    }
+    
+    // Run cleanup on startup (remove old entries if needed)
+    await cleanupOldProcessedInvoices();
+}
+
+// NEW: Get processed invoice IDs
+async function getProcessedInvoiceIds() {
+    if (!store) await initializeStore();
+    
+    const processedData = store.get('processedInvoices', {
+        invoiceIds: [],
+        lastCleanup: new Date().toISOString(),
+        version: '1.0'
+    });
+    
+    return new Set(processedData.invoiceIds);
+}
+
+// NEW: Mark invoice as processed
+async function markInvoiceAsProcessed(saleInvoiceId) {
+    if (!store) await initializeStore();
+    
+    const processedData = store.get('processedInvoices', {
+        invoiceIds: [],
+        lastCleanup: new Date().toISOString(),
+        version: '1.0'
+    });
+    
+    // Add to set (avoid duplicates)
+    const invoiceSet = new Set(processedData.invoiceIds);
+    const wasAlreadyProcessed = invoiceSet.has(saleInvoiceId);
+    invoiceSet.add(saleInvoiceId);
+    
+    // Convert back to array and save
+    processedData.invoiceIds = Array.from(invoiceSet);
+    processedData.lastUpdated = new Date().toISOString();
+    
+    store.set('processedInvoices', processedData);
+    
+    console.log(`📋 Marked invoice ${saleInvoiceId} as processed (${invoiceSet.size} total)`);
+    
+    return !wasAlreadyProcessed; // Return true if this was a new addition
+}
+
+// NEW: Check if invoice has been processed
+async function isInvoiceProcessed(saleInvoiceId) {
+    const processedIds = await getProcessedInvoiceIds();
+    return processedIds.has(saleInvoiceId);
+}
+
+// NEW: Get invoice processing statistics
+async function getInvoiceProcessingStats() {
+    if (!store) await initializeStore();
+    
+    const processedData = store.get('processedInvoices', {
+        invoiceIds: [],
+        lastCleanup: new Date().toISOString(),
+        version: '1.0'
+    });
+    
+    return {
+        totalProcessed: processedData.invoiceIds.length,
+        lastUpdated: processedData.lastUpdated || 'Never',
+        lastCleanup: processedData.lastCleanup || 'Never',
+        version: processedData.version || '1.0',
+        storageLocation: store.path,
+        firstProcessedId: processedData.invoiceIds.length > 0 ? processedData.invoiceIds[0] : null,
+        lastProcessedId: processedData.invoiceIds.length > 0 ? processedData.invoiceIds[processedData.invoiceIds.length - 1] : null
+    };
+}
+
+// NEW: Clear processed invoice history (for debugging)
+async function clearProcessedInvoiceHistory(keepRecent = 0) {
+    if (!store) await initializeStore();
+    
+    const processedData = store.get('processedInvoices', {
+        invoiceIds: [],
+        lastCleanup: new Date().toISOString(),
+        version: '1.0'
+    });
+    
+    const originalCount = processedData.invoiceIds.length;
+    
+    if (keepRecent > 0 && processedData.invoiceIds.length > keepRecent) {
+        // Keep only the most recent N entries
+        processedData.invoiceIds = processedData.invoiceIds.slice(-keepRecent);
+    } else {
+        // Clear all
+        processedData.invoiceIds = [];
+    }
+    
+    processedData.lastCleanup = new Date().toISOString();
+    processedData.lastUpdated = new Date().toISOString();
+    
+    store.set('processedInvoices', processedData);
+    
+    const clearedCount = originalCount - processedData.invoiceIds.length;
+    console.log(`📋 Cleared ${clearedCount} processed invoice records (kept ${processedData.invoiceIds.length})`);
+    
+    return {
+        cleared: clearedCount,
+        remaining: processedData.invoiceIds.length,
+        originalCount: originalCount
+    };
+}
+
+// NEW: Cleanup old processed invoices (run periodically)
+async function cleanupOldProcessedInvoices(maxAge = 30 * 24 * 60 * 60 * 1000) { // 30 days default
+    if (!store) await initializeStore();
+    
+    const processedData = store.get('processedInvoices', {
+        invoiceIds: [],
+        lastCleanup: new Date().toISOString(),
+        version: '1.0'
+    });
+    
+    const lastCleanup = new Date(processedData.lastCleanup || '1970-01-01');
+    const now = new Date();
+    const timeSinceCleanup = now.getTime() - lastCleanup.getTime();
+    
+    // Only run cleanup once per day
+    if (timeSinceCleanup < 24 * 60 * 60 * 1000) {
+        return { skipped: true, reason: 'Recently cleaned' };
+    }
+    
+    const originalCount = processedData.invoiceIds.length;
+    
+    // For now, just update the cleanup timestamp - we keep all records
+    // In the future, you could implement logic to remove very old entries
+    // based on timestamps if you start storing processing dates
+    
+    processedData.lastCleanup = now.toISOString();
+    store.set('processedInvoices', processedData);
+    
+    console.log(`📋 Ran invoice cleanup check (${originalCount} records maintained)`);
+    
+    return {
+        skipped: false,
+        maintained: originalCount,
+        lastCleanup: now.toISOString()
+    };
+}
+
+// NEW: Export processed invoice list (for debugging)
+async function exportProcessedInvoiceList() {
+    const stats = await getInvoiceProcessingStats();
+    const processedIds = await getProcessedInvoiceIds();
+    
+    const exportData = {
+        meta: stats,
+        processedInvoiceIds: Array.from(processedIds).sort(),
+        exportedAt: new Date().toISOString()
+    };
+    
+    return exportData;
+}
+
 // Set up IPC handlers for the renderer process
 async function setupIPCHandlers() {
     // Ensure store is initialized
     await initializeStore();
+    
+    // Initialize invoice tracking
+    await setupInvoiceTracking();
     
     // Save configuration
     ipcMain.handle('save-config', async (event, config) => {
@@ -74,6 +247,62 @@ async function setupIPCHandlers() {
             return { success: true };
         } catch (error) {
             console.error('Error clearing configuration:', error);
+            throw error;
+        }
+    });
+
+    // NEW: Invoice tracking IPC handlers
+    ipcMain.handle('get-processed-invoices', async (event) => {
+        try {
+            const processedIds = await getProcessedInvoiceIds();
+            return Array.from(processedIds);
+        } catch (error) {
+            console.error('Error getting processed invoices:', error);
+            throw error;
+        }
+    });
+
+    ipcMain.handle('is-invoice-processed', async (event, saleInvoiceId) => {
+        try {
+            return await isInvoiceProcessed(saleInvoiceId);
+        } catch (error) {
+            console.error('Error checking if invoice is processed:', error);
+            throw error;
+        }
+    });
+
+    ipcMain.handle('mark-invoice-processed', async (event, saleInvoiceId) => {
+        try {
+            return await markInvoiceAsProcessed(saleInvoiceId);
+        } catch (error) {
+            console.error('Error marking invoice as processed:', error);
+            throw error;
+        }
+    });
+
+    ipcMain.handle('get-invoice-stats', async (event) => {
+        try {
+            return await getInvoiceProcessingStats();
+        } catch (error) {
+            console.error('Error getting invoice stats:', error);
+            throw error;
+        }
+    });
+
+    ipcMain.handle('clear-processed-invoices', async (event, keepRecent = 0) => {
+        try {
+            return await clearProcessedInvoiceHistory(keepRecent);
+        } catch (error) {
+            console.error('Error clearing processed invoices:', error);
+            throw error;
+        }
+    });
+
+    ipcMain.handle('export-processed-invoices', async (event) => {
+        try {
+            return await exportProcessedInvoiceList();
+        } catch (error) {
+            console.error('Error exporting processed invoices:', error);
             throw error;
         }
     });
@@ -235,7 +464,7 @@ async function setupIPCHandlers() {
         // Create new SFTP instance
         const sftp = new sftpClient();
         
-        console.log(`📤 SFTP: Connecting to ${ftpCredentials.host}:${ftpCredentials.port}`);
+        console.log(`🔤 SFTP: Connecting to ${ftpCredentials.host}:${ftpCredentials.port}`);
         
         // Connect to SFTP server - let this crash if it fails
         await sftp.connect({
@@ -253,7 +482,7 @@ async function setupIPCHandlers() {
             strictVendor: false
         });
         
-        console.log(`📤 SFTP: Connected successfully`);
+        console.log(`🔤 SFTP: Connected successfully`);
         
         // Determine target directory and remote path
         const targetDirectory = ftpCredentials.directory || '/';
@@ -261,13 +490,13 @@ async function setupIPCHandlers() {
             `${targetDirectory}${filename}` : 
             `${targetDirectory}/${filename}`;
         
-        console.log(`📤 SFTP: Uploading to ${remotePath}`);
-        console.log(`📤 SFTP: File size: ${content.length} bytes`);
+        console.log(`🔤 SFTP: Uploading to ${remotePath}`);
+        console.log(`🔤 SFTP: File size: ${content.length} bytes`);
         
         // Create directory if needed - let minor errors slide
         await sftp.mkdir(targetDirectory, true).catch(() => {
             // Directory might already exist, which is fine
-            console.log(`📤 SFTP: Directory creation skipped (may already exist)`);
+            console.log(`🔤 SFTP: Directory creation skipped (may already exist)`);
         });
         
         // Upload the file - let this crash if it fails
@@ -359,8 +588,23 @@ async function getStore() {
     return store;
 }
 
+// NEW: Get storage path for debugging
+function getStoragePath() {
+    if (!store) {
+        return null;
+    }
+    return store.path;
+}
+
 // Export functions for use in main.js
 module.exports = {
     setupIPCHandlers,
-    getStore
+    getStore,
+    getStoragePath,
+    // Export invoice tracking functions for direct use in main process if needed
+    getProcessedInvoiceIds,
+    markInvoiceAsProcessed,
+    isInvoiceProcessed,
+    getInvoiceProcessingStats,
+    clearProcessedInvoiceHistory
 };

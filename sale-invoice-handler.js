@@ -66,15 +66,273 @@ const MORRISONS_NAME = 'WM. MORRISON SUPERMARKETS PLC';
 const MORRISONS_ADDRESS = 'HILMORE HOUSE:GAIN LANE::BD3 7DL';
 const MORRISONS_VAT = '343475355';
 
-// Debug flags
+// Debug flags - MODIFY THESE FOR TESTING
 const DEBUG_FLAGS = {
     ACTUALLY_SEND_TO_FTP: false,    
     LOG_EDI_PAYLOAD: true,          
     SIMULATE_FTP_DELAY: false,       
-    DETAILED_FTP_LOGGING: true      
+    DETAILED_FTP_LOGGING: true,
+    // NEW: Invoice tracking debug flags
+    SKIP_PROCESSED_INVOICES: true,          // Set to false to reprocess all invoices
+    LOG_INVOICE_TRACKING: true,             // Log tracking decisions
+    FORCE_REPROCESS_COUNT: 0,               // Force reprocess this many recent invoices (0 = none)
+    INVOICE_TRACKING_STATS: true            // Show tracking stats
 };
 
-// NEW: EDI Validation and undefined handling
+// NEW: Invoice tracking functionality
+class InvoiceTracker {
+    constructor() {
+        this.processedIds = new Set();
+        this.isInitialized = false;
+        this.initializationPromise = null;
+        this.stats = {
+            totalProcessed: 0,
+            skippedCount: 0,
+            newProcessedCount: 0,
+            reprocessedCount: 0,
+            lastUpdate: null
+        };
+    }
+    
+    async initialize() {
+        // Prevent multiple initializations
+        if (this.initializationPromise) {
+            return this.initializationPromise;
+        }
+        
+        // Create initialization promise
+        this.initializationPromise = this._doInitialize();
+        return this.initializationPromise;
+    }
+    
+    async _doInitialize() {
+        if (this.isInitialized) return;
+        
+        try {
+            console.log('📋 Invoice Tracker: Starting initialization...');
+            
+            if (window.electronAPI && window.electronAPI.getProcessedInvoices) {
+                const processedArray = await window.electronAPI.getProcessedInvoices();
+                this.processedIds = new Set(processedArray);
+                
+                if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+                    console.log(`📋 Invoice Tracker: Loaded ${this.processedIds.size} processed invoice IDs from persistent storage`);
+                    if (this.processedIds.size > 0) {
+                        console.log('📋 First few processed IDs:', Array.from(this.processedIds).slice(0, 5));
+                    }
+                }
+                
+                // Get detailed stats
+                if (window.electronAPI.getInvoiceStats) {
+                    const detailedStats = await window.electronAPI.getInvoiceStats();
+                    this.stats.totalProcessed = detailedStats.totalProcessed;
+                    this.stats.lastUpdate = detailedStats.lastUpdated;
+                    
+                    if (DEBUG_FLAGS.INVOICE_TRACKING_STATS) {
+                        console.log('📋 Invoice Tracking Stats:', detailedStats);
+                    }
+                }
+            } else {
+                console.warn('📋 Invoice Tracker: Electron API not available, using memory-only tracking');
+            }
+            
+            this.isInitialized = true;
+            console.log('📋 Invoice Tracker: Initialization completed successfully');
+        } catch (error) {
+            console.error('📋 Invoice Tracker initialization failed:', error);
+            // Reset initialization promise so it can be retried
+            this.initializationPromise = null;
+            throw error;
+        }
+    }
+    
+    async isProcessed(saleInvoiceId) {
+        // Ensure initialization is complete before checking
+        await this.initialize();
+        
+        // Normalize the ID for consistent comparison
+        const normalizedId = this.normalizeInvoiceId(saleInvoiceId);
+        
+        if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+            console.log(`📋 Checking if invoice ${normalizedId} is processed...`);
+        }
+        
+        // Check memory first (fast)
+        if (this.processedIds.has(normalizedId)) {
+            if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+                console.log(`📋 Found ${normalizedId} in memory cache`);
+            }
+            return true;
+        }
+        
+        // Check persistent storage if available (slower but authoritative)
+        try {
+            if (window.electronAPI && window.electronAPI.isInvoiceProcessed) {
+                const isProcessed = await window.electronAPI.isInvoiceProcessed(normalizedId);
+                if (isProcessed) {
+                    // Update memory cache
+                    this.processedIds.add(normalizedId);
+                    if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+                        console.log(`📋 Found ${normalizedId} in persistent storage, added to cache`);
+                    }
+                }
+                return isProcessed;
+            }
+        } catch (error) {
+            console.warn('📋 Error checking processed invoice status:', error);
+        }
+        
+        if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+            console.log(`📋 Invoice ${normalizedId} not found in processed list`);
+        }
+        return false;
+    }
+    
+    async markAsProcessed(saleInvoiceId) {
+        await this.initialize();
+        
+        // Normalize the ID for consistent storage
+        const normalizedId = this.normalizeInvoiceId(saleInvoiceId);
+        
+        const wasNew = !this.processedIds.has(normalizedId);
+        
+        // Update memory
+        this.processedIds.add(normalizedId);
+        
+        // Update persistent storage
+        try {
+            if (window.electronAPI && window.electronAPI.markInvoiceProcessed) {
+                const wasActuallyNew = await window.electronAPI.markInvoiceProcessed(normalizedId);
+                
+                if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+                    console.log(`📋 Marked invoice ${normalizedId} as processed (${wasActuallyNew ? 'NEW' : 'already existed'})`);
+                }
+                
+                if (wasActuallyNew) {
+                    this.stats.newProcessedCount++;
+                }
+                
+                return wasActuallyNew;
+            }
+        } catch (error) {
+            console.error('📋 Error marking invoice as processed:', error);
+        }
+        
+        return wasNew;
+    }
+    
+    // Normalize invoice ID to ensure consistency
+    normalizeInvoiceId(invoiceId) {
+        if (invoiceId === null || invoiceId === undefined) {
+            return '';
+        }
+        // Convert to string and trim whitespace
+        return String(invoiceId).trim();
+    }
+    
+    shouldSkip(saleInvoiceId, isProcessed) {
+        const normalizedId = this.normalizeInvoiceId(saleInvoiceId);
+        
+        if (!DEBUG_FLAGS.SKIP_PROCESSED_INVOICES) {
+            if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+                console.log(`📋 Processing ${normalizedId}: SKIP_PROCESSED_INVOICES disabled, will process`);
+            }
+            return false;
+        }
+        
+        if (!isProcessed) {
+            if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+                console.log(`📋 Processing ${normalizedId}: Not processed before, will process`);
+            }
+            return false;
+        }
+        
+        // Check if we're forcing reprocessing of recent invoices
+        if (DEBUG_FLAGS.FORCE_REPROCESS_COUNT > 0) {
+            this.stats.reprocessedCount++;
+            if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+                console.log(`📋 Processing ${normalizedId}: Forcing reprocess (FORCE_REPROCESS_COUNT=${DEBUG_FLAGS.FORCE_REPROCESS_COUNT})`);
+            }
+            return false;
+        }
+        
+        this.stats.skippedCount++;
+        if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+            console.log(`📋 Skipping ${normalizedId}: Already processed`);
+        }
+        return true;
+    }
+    
+    getStats() {
+        return {
+            ...this.stats,
+            totalInMemory: this.processedIds.size,
+            isInitialized: this.isInitialized,
+            debugFlags: {
+                skipProcessedInvoices: DEBUG_FLAGS.SKIP_PROCESSED_INVOICES,
+                forceReprocessCount: DEBUG_FLAGS.FORCE_REPROCESS_COUNT,
+                logTracking: DEBUG_FLAGS.LOG_INVOICE_TRACKING
+            }
+        };
+    }
+    
+    // Rest of methods remain the same...
+    async exportTrackingData() {
+        try {
+            if (window.electronAPI && window.electronAPI.exportProcessedInvoices) {
+                return await window.electronAPI.exportProcessedInvoices();
+            }
+        } catch (error) {
+            console.error('Error exporting tracking data:', error);
+        }
+        
+        // Fallback to memory-only data
+        return {
+            processedInvoiceIds: Array.from(this.processedIds).sort(),
+            stats: this.getStats(),
+            exportedAt: new Date().toISOString(),
+            source: 'memory-only'
+        };
+    }
+    
+    async clearTrackingData(keepRecent = 0) {
+        try {
+            if (window.electronAPI && window.electronAPI.clearProcessedInvoices) {
+                const result = await window.electronAPI.clearProcessedInvoices(keepRecent);
+                
+                // Update memory cache
+                this.processedIds.clear();
+                
+                // Reload from persistent storage
+                this.isInitialized = false;
+                this.initializationPromise = null;
+                await this.initialize();
+                
+                console.log(`📋 Cleared tracking data:`, result);
+                return result;
+            }
+        } catch (error) {
+            console.error('Error clearing tracking data:', error);
+        }
+        
+        // Fallback to memory-only clear
+        this.processedIds.clear();
+        this.stats = {
+            totalProcessed: 0,
+            skippedCount: 0,
+            newProcessedCount: 0,
+            reprocessedCount: 0,
+            lastUpdate: new Date().toISOString()
+        };
+        
+        return { cleared: 0, remaining: 0 };
+    }
+}
+
+// Create global invoice tracker instance
+const invoiceTracker = new InvoiceTracker();
+
+// EDI Validation and undefined handling
 function validateAndSanitizeValue(value, fieldName, defaultValue = "UNDEFINED") {
     const validationResult = {
         value: value,
@@ -98,7 +356,7 @@ function validateAndSanitizeValue(value, fieldName, defaultValue = "UNDEFINED") 
     return validationResult;
 }
 
-// NEW: Comprehensive EDI validation tracker
+// Comprehensive EDI validation tracker
 class EDIValidationTracker {
     constructor() {
         this.invalidFields = [];
@@ -133,8 +391,51 @@ class EDIValidationTracker {
     }
 }
 
+/**
+ * Extract number of days from payment terms string and calculate due date
+ * @param {string} paymentTerms - Payment terms (e.g., "NET 30", "COD", "IMMEDIATE")
+ * @param {string} issueDate - Invoice issue date (ISO string)
+ * @returns {string} - Calculated due date (ISO string)
+ */
+function calculateDueDate(paymentTerms, issueDate) {
+    if (!paymentTerms || !issueDate) {
+        return issueDate; // fallback to issue date if no terms
+    }
+    
+    let daysToAdd = 0;
+    const upperTerms = paymentTerms.toUpperCase();
+    
+    // Extract days from payment terms
+    if (upperTerms.includes('NET ')) {
+        // Extract number after 'NET ' (e.g., "NET 30" -> 30)
+        const match = upperTerms.match(/NET\s+(\d+)/);
+        if (match) {
+            daysToAdd = parseInt(match[1], 10);
+        }
+    } else if (upperTerms === 'COD' || upperTerms === 'CASH ON DELIVERY (COD)') {
+        daysToAdd = 0; // Cash on delivery = immediate
+    } else if (upperTerms === 'IMMEDIATE' || upperTerms === 'IMMEDIATE PAYMENT') {
+        daysToAdd = 0; // Immediate payment
+    } else {
+        // For any other terms, try to extract a number
+        const match = upperTerms.match(/(\d+)/);
+        if (match) {
+            daysToAdd = parseInt(match[1], 10);
+        } else {
+            daysToAdd = 0; // Default to immediate if we can't parse
+        }
+    }
+    
+    // Calculate due date
+    const issueDateObj = new Date(issueDate);
+    const dueDateObj = new Date(issueDateObj);
+    dueDateObj.setDate(issueDateObj.getDate() + daysToAdd);
+    
+    return dueDateObj.toISOString();
+}
+
 async function buildEDIFACTInvoice(saleOrder, invoice, items, csvData, config) {
-    // NEW: Initialize validation tracker
+    // Initialize validation tracker
     const validation = new EDIValidationTracker();
     
     // Helper functions with validation
@@ -238,12 +539,21 @@ async function buildEDIFACTInvoice(saleOrder, invoice, items, csvData, config) {
     const invoiceValidations = {
         invoiceNumber: validateAndSanitizeValue(invoice.invoiceNumber, 'invoice.invoiceNumber'),
         issueDate: validateAndSanitizeValue(invoice.issueDate, 'invoice.issueDate'),
-        dueDate: validateAndSanitizeValue(invoice.dueDate, 'invoice.dueDate'),
         currency: validateAndSanitizeValue(invoice.currency, 'invoice.currency', 'GBP'),
         saleOrderNiceId: validateAndSanitizeValue(invoice.saleOrderNiceId, 'invoice.saleOrderNiceId')
     };
     
     Object.values(invoiceValidations).forEach(v => validation.addValidation(v));
+    
+    // Calculate due date based on payment terms
+    const calculatedDueDate = calculateDueDate(
+        configValidations.paymentTerms.value, 
+        invoiceValidations.issueDate.value
+    );
+    
+    // Add the calculated due date to validations
+    const dueDateValidation = validateAndSanitizeValue(calculatedDueDate, 'calculated.dueDate');
+    validation.addValidation(dueDateValidation);
     
     // Validate sale order data
     const saleOrderValidations = {
@@ -298,9 +608,8 @@ async function buildEDIFACTInvoice(saleOrder, invoice, items, csvData, config) {
     // DTM - Date/Time/Period (Invoice Date)
     segments.push(`DTM+${DTM_INVOICE_DATE_QUALIFIER}:${formatDate(invoiceValidations.issueDate.value)}:${DTM_FORMAT_DATETIME}`);
     
-    // DTM - Tax Point Date
-    const taxDate = invoiceValidations.dueDate.value;
-    segments.push(`DTM+${DTM_TAX_POINT_QUALIFIER}:${formatDate(taxDate, DTM_FORMAT_DATE)}:${DTM_FORMAT_DATE}`);
+    // DTM - Tax Point Date (use calculated due date)
+    segments.push(`DTM+${DTM_TAX_POINT_QUALIFIER}:${formatDate(dueDateValidation.value, DTM_FORMAT_DATE)}:${DTM_FORMAT_DATE}`);
     
     // RFF - Reference (Original Order Number)
     if (invoiceValidations.saleOrderNiceId.value) {
@@ -330,11 +639,9 @@ async function buildEDIFACTInvoice(saleOrder, invoice, items, csvData, config) {
     // CUX - Currencies
     segments.push(`CUX+${CUX_REFERENCE_QUALIFIER}:${invoiceValidations.currency.value}:${CUX_INVOICE_QUALIFIER}`);
     
-    // PAT - Payment Terms (if due date provided)
-    if (invoiceValidations.dueDate.value) {
-        segments.push(`PAT+${PAT_PAYMENT_TYPE}+${PAT_TERMS_ID}:::${configValidations.paymentTerms.value}`);
-        segments.push(`DTM+${DTM_DUE_DATE_QUALIFIER}:${formatDate(invoiceValidations.dueDate.value, DTM_FORMAT_DATE)}:${DTM_FORMAT_DATE}`);
-    }
+    // PAT - Payment Terms (now always included with calculated due date)
+    segments.push(`PAT+${PAT_PAYMENT_TYPE}+${PAT_TERMS_ID}:::${configValidations.paymentTerms.value}`);
+    segments.push(`DTM+${DTM_DUE_DATE_QUALIFIER}:${formatDate(dueDateValidation.value, DTM_FORMAT_DATE)}:${DTM_FORMAT_DATE}`);
     
     // Detail Section - Line Items
     for (const [index, item] of items.entries()) {
@@ -429,8 +736,19 @@ async function buildEDIFACTInvoice(saleOrder, invoice, items, csvData, config) {
 }
 
 async function sendData(){
-    let invoices = []
-    let csvData
+    let invoices = [];
+    let csvData;
+    
+    console.log('📋 Starting invoice processing...');
+    
+    // CRITICAL: Ensure invoice tracker is fully initialized before proceeding
+    try {
+        await invoiceTracker.initialize();
+        console.log('📋 Invoice tracker initialized successfully');
+    } catch (error) {
+        console.error('📋 Failed to initialize invoice tracker:', error);
+        // Continue without tracking (will process all invoices)
+    }
     
     // Get CSV data at the start for use during processing
     try {
@@ -443,7 +761,7 @@ async function sendData(){
         console.warn('Error retrieving CSV data:', error);
     }
 
-    console.log(csvData)
+    console.log('📋 CSV Data loaded:', csvData ? 'Available' : 'Not available');
     
     // Get the last run date, default to 1970s if first time
     let lastRunDate = '1970-01-01T00:00:00';
@@ -457,9 +775,12 @@ async function sendData(){
         console.log('Using default date for first run');
     }
     
+    // Fetch invoices
     await loopThrough(`https://api.stok.ly/v0/invoices`, 1000, 'sortDirection=ASC&sortField=niceId', `([invoiceNumber]=={30942})`, async (invoice)=>{
-        invoices.push(invoice)
+        invoices.push(invoice);
     });
+    
+    console.log(`📋 Total invoices found: ${invoices.length}`);
     
     // Save current timestamp for next run
     const currentTimestamp = new Date().toISOString();
@@ -471,14 +792,82 @@ async function sendData(){
         console.error('Failed to save last run date:', error);
     }
 
-    // Process each invoice
+    // FIXED: Filter invoices based on processing history with consistent ID handling
+    const filteredInvoices = [];
+    let skippedCount = 0;
+    
     for (const invoice of invoices) {
-        await processInvoice(invoice.saleOrderNiceId, invoice, csvData);
+        // CRITICAL: Use consistent ID extraction and normalization
+        const saleInvoiceId = invoice.saleInvoiceId || invoice.invoiceNumber || invoice.id;
+        
+        if (!saleInvoiceId) {
+            console.warn('📋 Invoice found without ID, skipping:', invoice);
+            continue;
+        }
+        
+        // Normalize the ID
+        const normalizedId = invoiceTracker.normalizeInvoiceId(saleInvoiceId);
+        
+        try {
+            const isProcessed = await invoiceTracker.isProcessed(normalizedId);
+            
+            if (invoiceTracker.shouldSkip(normalizedId, isProcessed)) {
+                skippedCount++;
+            } else {
+                // Store the normalized ID in the invoice object for consistent use
+                invoice._trackingId = normalizedId;
+                filteredInvoices.push(invoice);
+            }
+        } catch (error) {
+            console.error(`📋 Error checking processing status for invoice ${normalizedId}:`, error);
+            // On error, default to processing the invoice
+            invoice._trackingId = normalizedId;
+            filteredInvoices.push(invoice);
+        }
+    }
+    
+    // Log filtering results
+    if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+        console.log(`📋 Invoice Processing Filter Results:`);
+        console.log(`   Total found: ${invoices.length}`);
+        console.log(`   Skipped (already processed): ${skippedCount}`);
+        console.log(`   Will process: ${filteredInvoices.length}`);
+        
+        if (DEBUG_FLAGS.INVOICE_TRACKING_STATS) {
+            console.log(`📋 Tracker Stats:`, invoiceTracker.getStats());
+        }
+    }
+
+    // Process each filtered invoice
+    for (const invoice of filteredInvoices) {
+        // Use the consistent tracking ID we stored
+        const trackingId = invoice._trackingId;
+        
+        try {
+            await processInvoice(invoice.saleOrderNiceId, invoice, csvData, trackingId);
+        } catch (error) {
+            console.error(`📋 Failed to process invoice ${trackingId}:`, error);
+        }
+    }
+    
+    // Log final stats
+    if (DEBUG_FLAGS.INVOICE_TRACKING_STATS) {
+        const finalStats = invoiceTracker.getStats();
+        console.log(`📋 Final Processing Stats:`, finalStats);
     }
 }
 
-// UPDATED: Process a single invoice with validation checking
-async function processInvoice(invoiceId, invoice, csvData) {
+// UPDATED: Process a single invoice with validation checking and tracking
+async function processInvoice(invoiceId, invoice, csvData, trackingId = null) {
+    // Use the provided trackingId first, then fall back to other IDs
+    const saleInvoiceId = trackingId || invoice.saleInvoiceId || invoice.invoiceNumber || invoiceId;
+    
+    // Normalize the ID consistently
+    const normalizedTrackingId = invoiceTracker.normalizeInvoiceId(saleInvoiceId);
+    
+    if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+        console.log(`Starting processing for invoice ${invoiceId} (tracking ID: ${normalizedTrackingId})`);
+    }
     
     // Start tracking this invoice
     const result = window.processingResults.startInvoiceProcessing(invoiceId, invoice);
@@ -511,7 +900,7 @@ async function processInvoice(invoiceId, invoice, csvData) {
             return;
         }
 
-        // Step 4: Generate EDI payload (UPDATED with validation)
+        // Step 4: Generate EDI payload (with validation)
         window.processingResults.updateStepStatus(invoiceId, 'edi', 'processing');
         
         let ediResult;
@@ -555,7 +944,7 @@ async function processInvoice(invoiceId, invoice, csvData) {
                     window.processingResults.processingQueue.delete(result.uniqueKey);
                     window.processingResults.debouncedUpdateDisplay();
                     
-                    console.log(`⚠️ Invoice ${invoiceId} failed EDI validation but payload was stored for manual editing`);
+                    console.log(`Invoice ${invoiceId} (tracking ID: ${normalizedTrackingId}) failed EDI validation but payload was stored for manual editing`);
                 } else {
                     console.error(`Could not find result for invoice ${invoiceId} to store failed EDI`);
                 }
@@ -574,7 +963,7 @@ async function processInvoice(invoiceId, invoice, csvData) {
         
         // Optional: Log EDI payload to console
         if (DEBUG_FLAGS.LOG_EDI_PAYLOAD) {
-            console.log(`\n📄 EDI PAYLOAD for Invoice ${invoiceId}:`);
+            console.log(`\nEDI PAYLOAD for Invoice ${invoiceId} (tracking ID: ${normalizedTrackingId}):`);
             console.log('='.repeat(60));
             console.log(ediResult.ediPayload);
             console.log('='.repeat(60));
@@ -612,16 +1001,26 @@ async function processInvoice(invoiceId, invoice, csvData) {
             // Complete the invoice processing
             window.processingResults.completeInvoiceProcessing(invoiceId, ediResult.ediPayload);
             
-            console.log(`✅ Successfully processed and transmitted invoice ${invoiceId}`);
+            // Mark invoice as processed with consistent ID
+            try {
+                await invoiceTracker.markAsProcessed(normalizedTrackingId);
+                if (DEBUG_FLAGS.LOG_INVOICE_TRACKING) {
+                    console.log(`Successfully marked ${normalizedTrackingId} as processed`);
+                }
+            } catch (error) {
+                console.warn(`Failed to mark ${normalizedTrackingId} as processed:`, error);
+            }
+            
+            console.log(`Successfully processed and transmitted invoice ${invoiceId} (tracking ID: ${normalizedTrackingId})`);
             if (transmissionResult.debugMode) {
-                console.log(`🧪 (DEBUG MODE - no actual transmission occurred)`);
+                console.log(`(DEBUG MODE - no actual transmission occurred)`);
             }
         } else {
             throw new Error(transmissionResult.error || 'FTP transmission failed');
         }
         
     } catch (error) {
-        console.error(`Unexpected error processing invoice ${invoiceId}:`, error);
+        console.error(`Unexpected error processing invoice ${invoiceId} (tracking ID: ${normalizedTrackingId}):`, error);
         window.processingResults.failInvoiceProcessing(invoiceId, 'invoice', `Unexpected error: ${error.message}`);
     }
 }
@@ -639,7 +1038,7 @@ async function getFtpCredentials() {
 // REAL FTP/SFTP transmission
 async function transmitEdiFileReal(invoiceId, ediContent, ftpCredentials) {
     if (DEBUG_FLAGS.DETAILED_FTP_LOGGING) {
-        console.log(`📤 FTP: Starting ${ftpCredentials.secure ? 'SFTP' : 'FTP'} transmission for invoice ${invoiceId}`);
+        console.log(`FTP: Starting ${ftpCredentials.secure ? 'SFTP' : 'FTP'} transmission for invoice ${invoiceId}`);
     }
     
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -658,8 +1057,8 @@ async function transmitEdiFileReal(invoiceId, ediContent, ftpCredentials) {
 
 // Regular FTP transmission (fallback)
 async function transmitViaFTP(filename, ediContent, ftpCredentials) {
-    console.log(`📤 FTP: Regular FTP not implemented - use SFTP instead`);
-    console.log(`📤 FTP: Would upload ${filename} (${ediContent.length} bytes) to ${ftpCredentials.host}`);
+    console.log(`FTP: Regular FTP not implemented - use SFTP instead`);
+    console.log(`FTP: Would upload ${filename} (${ediContent.length} bytes) to ${ftpCredentials.host}`);
     
     // Simulate transmission
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -677,10 +1076,10 @@ async function transmitViaFTP(filename, ediContent, ftpCredentials) {
     };
 }
 
-// NEW: Manual EDI transmission function
+// Manual EDI transmission function
 async function manuallyTransmitEdi(invoiceId, ediPayload) {
     try {
-        console.log(`📤 Manual transmission started for invoice ${invoiceId}`);
+        console.log(`Manual transmission started for invoice ${invoiceId}`);
         
         // Get FTP credentials
         const ftpCredentials = await getFtpCredentials();
@@ -719,6 +1118,40 @@ async function manuallyTransmitEdi(invoiceId, ediPayload) {
     }
 }
 
+// NEW: Debugging and management functions for invoice tracking
+window.debugInvoiceTracking = {
+    // Get current tracking statistics
+    getStats: () => invoiceTracker.getStats(),
+    
+    // Export all tracking data
+    exportData: () => invoiceTracker.exportTrackingData(),
+    
+    // Clear tracking history
+    clearHistory: (keepRecent = 0) => invoiceTracker.clearTrackingData(keepRecent),
+    
+    // Check if specific invoice is processed
+    isProcessed: (saleInvoiceId) => invoiceTracker.isProcessed(saleInvoiceId),
+    
+    // Manually mark invoice as processed
+    markProcessed: (saleInvoiceId) => invoiceTracker.markAsProcessed(saleInvoiceId),
+    
+    // Get current debug flags
+    getDebugFlags: () => ({ ...DEBUG_FLAGS }),
+    
+    // Get storage location info
+    getStorageInfo: async () => {
+        try {
+            if (window.electronAPI && window.electronAPI.getInvoiceStats) {
+                return await window.electronAPI.getInvoiceStats();
+            }
+        } catch (error) {
+            return { error: error.message };
+        }
+        return { location: 'Not available - using memory only' };
+    }
+};
+
 // Export functions
 window.processInvoice = processInvoice;
 window.manuallyTransmitEdi = manuallyTransmitEdi;
+window.invoiceTracker = invoiceTracker;

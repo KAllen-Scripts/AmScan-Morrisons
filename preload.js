@@ -25,6 +25,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Window focus management (for fixing Electron focus issues)
     focusWindow: () => ipcRenderer.invoke('focus-window'),
     
+    // NEW: Invoice tracking APIs
+    getProcessedInvoices: () => ipcRenderer.invoke('get-processed-invoices'),
+    isInvoiceProcessed: (saleInvoiceId) => ipcRenderer.invoke('is-invoice-processed', saleInvoiceId),
+    markInvoiceProcessed: (saleInvoiceId) => ipcRenderer.invoke('mark-invoice-processed', saleInvoiceId),
+    getInvoiceStats: () => ipcRenderer.invoke('get-invoice-stats'),
+    clearProcessedInvoices: (keepRecent) => ipcRenderer.invoke('clear-processed-invoices', keepRecent),
+    exportProcessedInvoices: () => ipcRenderer.invoke('export-processed-invoices'),
+    
     // Optional: Add more utility functions
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     showMessageBox: (options) => ipcRenderer.invoke('show-message-box', options)

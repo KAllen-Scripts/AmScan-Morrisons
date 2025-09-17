@@ -1,4 +1,4 @@
-// Processing Results Manager - Complete with Enhanced Animations, Error Handling, and Filtering
+// Processing Results Manager - Complete with Enhanced Animations, Error Handling, Filtering, and State Management Fixes
 
 class ProcessingResultsManager {
     constructor() {
@@ -25,6 +25,11 @@ class ProcessingResultsManager {
         this.updateDisplay();
         this.injectEnhancedAnimationStyles();
         this.optimizeAnimations();
+        
+        // Initialize filter buttons after DOM is ready
+        setTimeout(() => {
+            this.updateFilterButtons();
+        }, 100);
     }
 
     initializeElements() {
@@ -132,6 +137,12 @@ class ProcessingResultsManager {
                 const uniqueKey = e.target.getAttribute('data-unique-key');
                 this.resendEdiPayload(uniqueKey);
             }
+            
+            if (e.target.matches('[data-action="dismiss"]')) {
+                e.stopPropagation();
+                const uniqueKey = e.target.getAttribute('data-unique-key');
+                this.dismissResult(uniqueKey);
+            }
         });
         
         // Handle Escape key for EDI modal
@@ -140,6 +151,58 @@ class ProcessingResultsManager {
                 this.closeEdiModalHandler();
             }
         });
+    }
+
+    // NEW: Cleanup method to remove old processing attempts
+    cleanupOldProcessingAttempts(invoiceId) {
+        const keysToRemove = [];
+        
+        for (const [key, result] of Object.entries(this.results)) {
+            if (result.invoiceId === invoiceId && result.status !== 'processing') {
+                keysToRemove.push(key);
+            }
+        }
+        
+        keysToRemove.forEach(key => {
+            console.log(`Cleaning up old result for invoice ${invoiceId}: ${key}`);
+            delete this.results[key];
+            this.processingQueue.delete(key);
+            this.retryAttempts.delete(invoiceId);
+        });
+        
+        if (keysToRemove.length > 0) {
+            this.debouncedUpdateDisplay();
+        }
+    }
+
+    // NEW: Clean up stuck processing states
+    cleanupStuckProcessing() {
+        let cleanedCount = 0;
+        const now = Date.now();
+        const maxProcessingTime = 10 * 60 * 1000; // 10 minutes
+        
+        for (const [key, result] of Object.entries(this.results)) {
+            if (result.status === 'processing') {
+                const processingTime = now - result.startTime.getTime();
+                
+                // Check if not in processing queue or has been processing too long
+                if (!this.processingQueue.has(result.uniqueKey) || processingTime > maxProcessingTime) {
+                    console.warn(`Found stuck processing result, cleaning up: ${result.uniqueKey}`);
+                    result.status = 'error';
+                    result.error = 'Processing was reset due to stuck state';
+                    result.completedAt = new Date();
+                    this.processingQueue.delete(result.uniqueKey);
+                    cleanedCount++;
+                }
+            }
+        }
+        
+        if (cleanedCount > 0) {
+            console.log(`Cleaned up ${cleanedCount} stuck processing results`);
+            this.debouncedUpdateDisplay();
+        }
+        
+        return cleanedCount;
     }
 
     // Toggle filter on/off
@@ -388,6 +451,9 @@ class ProcessingResultsManager {
 
     // Start processing an invoice
     startInvoiceProcessing(invoiceId, invoiceData = {}) {
+        // Clean up any old results for this invoice first
+        this.cleanupOldProcessingAttempts(invoiceId);
+        
         // Create a unique key that includes timestamp to avoid overwriting duplicates
         const timestamp = Date.now();
         const uniqueKey = `${invoiceId}_${timestamp}`;
@@ -418,6 +484,8 @@ class ProcessingResultsManager {
         // Only update display at the end, not on every step
         this.debouncedUpdateDisplay();
         
+        console.log(`Started processing for invoice ${invoiceId} with key ${uniqueKey}`);
+        
         return result;
     }
 
@@ -432,16 +500,21 @@ class ProcessingResultsManager {
         }, 100); // Wait 100ms before updating display
     }
 
-    // Update step status
+    // FIXED: Update step status with better result finding
     updateStepStatus(invoiceId, stepId, status, errorMessage = null, data = null) {
-        // Find the result by invoice ID (may have multiple with same ID but different timestamps)
+        // Find the most recent processing result by invoiceId
         const results = this.getAllResults();
-        const result = results.find(r => r.invoiceId === invoiceId && r.status === 'processing');
+        const processingResults = results.filter(r => r.invoiceId === invoiceId && r.status === 'processing');
         
-        if (!result) {
+        if (processingResults.length === 0) {
             console.warn(`No processing result found for invoice ${invoiceId} and step ${stepId}`);
             return;
         }
+        
+        // Get the most recent one (highest timestamp)
+        const result = processingResults.reduce((latest, current) => {
+            return current.startTime > latest.startTime ? current : latest;
+        });
 
         const step = result.steps.find(s => s.id === stepId);
         if (!step) {
@@ -480,14 +553,19 @@ class ProcessingResultsManager {
 
     // Complete invoice processing successfully
     completeInvoiceProcessing(invoiceId, ediPayload) {
-        // Find the result by invoice ID (currently processing)
+        // Find the most recent processing result by invoiceId
         const results = this.getAllResults();
-        const result = results.find(r => r.invoiceId === invoiceId && r.status === 'processing');
+        const processingResults = results.filter(r => r.invoiceId === invoiceId && r.status === 'processing');
         
-        if (!result) {
+        if (processingResults.length === 0) {
             console.warn(`No processing result found for invoice ${invoiceId} to complete`);
             return;
         }
+
+        // Get the most recent one
+        const result = processingResults.reduce((latest, current) => {
+            return current.startTime > latest.startTime ? current : latest;
+        });
 
         result.status = 'success';
         result.completedAt = new Date();
@@ -506,14 +584,19 @@ class ProcessingResultsManager {
 
     // Store failed EDI payload (for validation failures)
     storeFailedEdiPayload(invoiceId, ediPayload, validationResult) {
-        // Find the result by invoice ID (currently processing)
+        // Find the most recent processing result by invoiceId
         const results = this.getAllResults();
-        const result = results.find(r => r.invoiceId === invoiceId && r.status === 'processing');
+        const processingResults = results.filter(r => r.invoiceId === invoiceId && r.status === 'processing');
         
-        if (!result) {
+        if (processingResults.length === 0) {
             console.warn(`No processing result found for invoice ${invoiceId} to store failed EDI`);
             return;
         }
+
+        // Get the most recent one
+        const result = processingResults.reduce((latest, current) => {
+            return current.startTime > latest.startTime ? current : latest;
+        });
 
         result.ediPayload = ediPayload;
         result.validationResult = validationResult;
@@ -527,14 +610,19 @@ class ProcessingResultsManager {
 
     // Fail invoice processing
     failInvoiceProcessing(invoiceId, stepId, errorMessage) {
-        // Find the result by invoice ID (currently processing)
+        // Find the most recent processing result by invoiceId
         const results = this.getAllResults();
-        const result = results.find(r => r.invoiceId === invoiceId && r.status === 'processing');
+        const processingResults = results.filter(r => r.invoiceId === invoiceId && r.status === 'processing');
         
-        if (!result) {
+        if (processingResults.length === 0) {
             console.warn(`No processing result found for invoice ${invoiceId} to fail`);
             return;
         }
+
+        // Get the most recent one
+        const result = processingResults.reduce((latest, current) => {
+            return current.startTime > latest.startTime ? current : latest;
+        });
 
         this.updateStepStatus(invoiceId, stepId, 'error', errorMessage);
         
@@ -552,6 +640,9 @@ class ProcessingResultsManager {
         if (!this.resultsList || !this.noResults) {
             return;
         }
+        
+        // Clean up any stuck processing first
+        this.cleanupStuckProcessing();
         
         // Update filter counts first
         this.updateFilterCounts();
@@ -611,13 +702,12 @@ class ProcessingResultsManager {
                 </div>
                 <div class="result-actions">
                     ${result.ediPayload ? 
-                        `<button class="btn-icon view-edi" data-action="view-edi" data-unique-key="${result.uniqueKey}" title="View EDI Payload">📄</button>` : ''}
-                    ${result.ediPayload ? 
-                        `<button class="btn-icon edit-edi" data-action="edit-edi" data-unique-key="${result.uniqueKey}" title="Edit and Resend EDI">✏️</button>` : ''}
+                        `<button class="btn-icon edit-edi" data-action="edit-edi" data-unique-key="${result.uniqueKey}" title="View/Edit EDI Payload">✏️</button>` : ''}
                     ${result.ediPayload && result.status === 'success' ? 
                         `<button class="btn-icon resend-edi" data-action="resend-edi" data-unique-key="${result.uniqueKey}" title="Resend EDI">📤</button>` : ''}
                     ${result.status === 'error' && retryCount < this.maxRetries && !result.ediPayload ? 
                         `<button class="btn-icon retry-now" data-action="retry" data-invoice-id="${result.invoiceId}" title="Retry Now">🔄</button>` : ''}
+                    <button class="btn-icon dismiss-item" data-action="dismiss" data-unique-key="${result.uniqueKey}" title="Dismiss this result">🗑️</button>
                     <button class="btn-icon collapse-toggle" data-action="collapse-toggle" title="Collapse">−</button>
                 </div>
             </div>
@@ -668,6 +758,16 @@ class ProcessingResultsManager {
                 e.stopPropagation();
                 const invoiceId = retryBtn.getAttribute('data-invoice-id');
                 this.retryInvoiceProcessing(invoiceId);
+            });
+        }
+
+        // Dismiss button
+        const dismissBtn = resultElement.querySelector('[data-action="dismiss"]');
+        if (dismissBtn) {
+            dismissBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const uniqueKey = dismissBtn.getAttribute('data-unique-key');
+                this.dismissResult(uniqueKey);
             });
         }
 
@@ -831,11 +931,16 @@ class ProcessingResultsManager {
 
         this.retryAttempts.set(invoiceId, currentRetries + 1);
         
-        // Find and reset the result status
+        // Find the most recent failed result
         const results = this.getAllResults();
-        const result = results.find(r => r.invoiceId === invoiceId && r.status === 'error');
+        const failedResults = results.filter(r => r.invoiceId === invoiceId && r.status === 'error');
         
-        if (result) {
+        let result = null;
+        if (failedResults.length > 0) {
+            result = failedResults.reduce((latest, current) => {
+                return current.startTime > latest.startTime ? current : latest;
+            });
+            
             result.status = 'processing';
             result.error = null;
             result.steps.forEach(step => {
@@ -990,22 +1095,24 @@ class ProcessingResultsManager {
 
         if (isEditMode) {
             toolbar.innerHTML = `
+                <button type="button" class="btn btn-small" id="copyEdi">Copy to Clipboard</button>
+                <button type="button" class="btn btn-small" id="downloadEdi">Download</button>
                 <button type="button" class="btn btn-small btn-secondary" id="cancelEditEdi">Cancel</button>
-                <button type="button" class="btn btn-small" id="saveAndTransmitEdi">Save & Transmit</button>
                 <button type="button" class="btn btn-small btn-orange" id="saveEdiOnly">Save Only</button>
+                <button type="button" class="btn btn-small" id="saveAndTransmitEdi">Save & Transmit</button>
             `;
             
-            // Add event listeners for edit mode buttons
+            // Add event listeners for all buttons
+            document.getElementById('copyEdi').addEventListener('click', () => this.copyEdiToClipboard());
+            document.getElementById('downloadEdi').addEventListener('click', () => this.downloadEdiFile());
             document.getElementById('cancelEditEdi').addEventListener('click', () => {
-                this.showEdiModal(uniqueKey); // Switch back to view mode
+                this.closeEdiModalHandler();
             });
-            
-            document.getElementById('saveAndTransmitEdi').addEventListener('click', () => {
-                this.saveAndTransmitEditedEdi(uniqueKey);
-            });
-            
             document.getElementById('saveEdiOnly').addEventListener('click', () => {
                 this.saveEditedEdi(uniqueKey);
+            });
+            document.getElementById('saveAndTransmitEdi').addEventListener('click', () => {
+                this.saveAndTransmitEditedEdi(uniqueKey);
             });
             
         } else {
@@ -1014,7 +1121,7 @@ class ProcessingResultsManager {
                 <button type="button" class="btn btn-small" id="downloadEdi">Download</button>
             `;
             
-            // Re-add original event listeners
+            // Add event listeners for view mode buttons
             document.getElementById('copyEdi').addEventListener('click', () => this.copyEdiToClipboard());
             document.getElementById('downloadEdi').addEventListener('click', () => this.downloadEdiFile());
         }
@@ -1213,24 +1320,65 @@ class ProcessingResultsManager {
         }
     }
 
-    // Clear all results and reset filters to all active
+    // Clear filtered results only
     clearAllResults() {
-        if (this.getResultsCount() === 0) {
+        const filteredResults = this.getFilteredResults();
+        const totalResults = this.getResultsCount();
+        
+        if (totalResults === 0) {
             console.log('No results to clear');
             return;
         }
         
-        if (confirm('Are you sure you want to clear all processing results?')) {
-            this.results = {};
-            this.retryAttempts.clear();
-            this.processingQueue.clear();
-            
-            // Reset filters to all active when clearing results
-            this.activeFilters = new Set(['success', 'error', 'manual']);
-            this.updateFilterButtons();
+        if (filteredResults.length === 0) {
+            console.log('No filtered results to clear');
+            return;
+        }
+        
+        const filterNames = Array.from(this.activeFilters).map(f => {
+            switch(f) {
+                case 'success': return 'successful';
+                case 'error': return 'failed';
+                case 'manual': return 'manually resolved';
+                default: return f;
+            }
+        });
+        
+        const confirmMessage = filteredResults.length === totalResults 
+            ? 'Are you sure you want to clear all processing results?'
+            : `Are you sure you want to clear ${filteredResults.length} ${filterNames.join(' and ')} results?`;
+        
+        if (confirm(confirmMessage)) {
+            // Remove only the filtered results
+            filteredResults.forEach(result => {
+                delete this.results[result.uniqueKey];
+                this.retryAttempts.delete(result.invoiceId);
+                this.processingQueue.delete(result.uniqueKey);
+            });
             
             this.updateDisplay();
-            console.log('All processing results cleared');
+            console.log(`Cleared ${filteredResults.length} filtered results`);
+        }
+    }
+
+    // NEW: Dismiss individual result
+    dismissResult(uniqueKey) {
+        const result = this.results[uniqueKey];
+        if (!result) {
+            console.warn(`Result ${uniqueKey} not found for dismissal`);
+            return;
+        }
+        
+        if (confirm(`Dismiss result for Invoice #${result.invoiceId}?`)) {
+            // Clean up associated data
+            this.retryAttempts.delete(result.invoiceId);
+            this.processingQueue.delete(uniqueKey);
+            
+            // Remove the result
+            delete this.results[uniqueKey];
+            
+            this.updateDisplay();
+            console.log(`Dismissed result for invoice ${result.invoiceId}`);
         }
     }
 

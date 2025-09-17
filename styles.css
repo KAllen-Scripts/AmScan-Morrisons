@@ -195,7 +195,7 @@ body {
     transform: translateY(-1px);
 }
 
-/* NEW: Filter Controls Styling */
+/* NEW: Modern Filter Toggle Styling */
 .sidebar-filters {
     padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--gray-200);
@@ -225,84 +225,107 @@ body {
 }
 
 .filter-toggle {
-    background: var(--gray-100);
-    color: var(--gray-600);
-    border: 2px solid var(--gray-200);
-    padding: 0.5rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition-fast);
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    justify-content: space-between;
-    width: 100%;
-    position: relative;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    user-select: none;
 }
 
 .filter-toggle:hover {
-    background: var(--gray-200);
+    background: var(--white);
     border-color: var(--gray-300);
-    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
 }
 
 .filter-toggle.active {
     background: var(--white);
     border-color: var(--primary-blue);
-    color: var(--primary-blue);
-    box-shadow: 0 0 0 1px var(--primary-blue);
-    transform: translateY(-1px);
+    box-shadow: 0 0 0 1px var(--primary-blue), var(--shadow-sm);
 }
 
-.filter-toggle.active::after {
-    content: '✓';
+/* Toggle Switch */
+.filter-toggle-switch {
+    position: relative;
+    width: 40px;
+    height: 20px;
+    background: var(--gray-300);
+    border-radius: 10px;
+    transition: background-color var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.filter-toggle.active .filter-toggle-switch {
+    background: var(--primary-blue);
+}
+
+.filter-toggle-slider {
     position: absolute;
-    right: 0.5rem;
-    color: var(--primary-blue);
-    font-weight: 700;
-    font-size: 0.75rem;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--white);
+    border-radius: 8px;
+    transition: transform var(--transition-fast);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.filter-icon {
-    font-size: 0.875rem;
-    width: 16px;
+.filter-toggle.active .filter-toggle-slider {
+    transform: translateX(20px);
+}
+
+/* Toggle Content */
+.filter-toggle-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.filter-toggle-icon {
+    font-size: 1rem;
+    width: 20px;
     text-align: center;
+    flex-shrink: 0;
+}
+
+.filter-toggle-label {
+    font-weight: 500;
+    color: var(--gray-700);
+    font-size: 0.875rem;
+    flex: 1;
 }
 
 .filter-count {
+    background: var(--gray-200);
+    color: var(--gray-600);
     font-size: 0.75rem;
     font-weight: 600;
-    opacity: 0.8;
-    background: var(--gray-200);
     padding: 0.125rem 0.375rem;
     border-radius: 12px;
     min-width: 1.5rem;
     text-align: center;
-}
-
-.filter-toggle.active .filter-count {
-    background: var(--light-blue);
-    color: var(--primary-blue);
-    opacity: 1;
+    transition: all var(--transition-fast);
 }
 
 /* Filter-specific styling */
-.filter-toggle[data-filter="success"] {
-    border-color: var(--success-green);
-    color: var(--success-green);
-}
-
-.filter-toggle[data-filter="success"]:hover:not(.active) {
-    background: var(--light-success);
+.filter-toggle[data-filter="success"]:hover {
     border-color: var(--success-green);
 }
 
 .filter-toggle[data-filter="success"].active {
     border-color: var(--success-green);
-    color: var(--success-green);
-    box-shadow: 0 0 0 1px var(--success-green);
+    box-shadow: 0 0 0 1px var(--success-green), var(--shadow-sm);
+}
+
+.filter-toggle[data-filter="success"].active .filter-toggle-switch {
+    background: var(--success-green);
 }
 
 .filter-toggle[data-filter="success"].active .filter-count {
@@ -310,24 +333,17 @@ body {
     color: var(--success-green);
 }
 
-.filter-toggle[data-filter="success"].active::after {
-    color: var(--success-green);
-}
-
-.filter-toggle[data-filter="error"] {
-    border-color: var(--error-red);
-    color: var(--error-red);
-}
-
-.filter-toggle[data-filter="error"]:hover:not(.active) {
-    background: var(--light-error);
+.filter-toggle[data-filter="error"]:hover {
     border-color: var(--error-red);
 }
 
 .filter-toggle[data-filter="error"].active {
     border-color: var(--error-red);
-    color: var(--error-red);
-    box-shadow: 0 0 0 1px var(--error-red);
+    box-shadow: 0 0 0 1px var(--error-red), var(--shadow-sm);
+}
+
+.filter-toggle[data-filter="error"].active .filter-toggle-switch {
+    background: var(--error-red);
 }
 
 .filter-toggle[data-filter="error"].active .filter-count {
@@ -335,32 +351,21 @@ body {
     color: var(--error-red);
 }
 
-.filter-toggle[data-filter="error"].active::after {
-    color: var(--error-red);
-}
-
-.filter-toggle[data-filter="manual"] {
-    border-color: var(--warning-yellow);
-    color: var(--warning-yellow);
-}
-
-.filter-toggle[data-filter="manual"]:hover:not(.active) {
-    background: var(--light-warning);
+.filter-toggle[data-filter="manual"]:hover {
     border-color: var(--warning-yellow);
 }
 
 .filter-toggle[data-filter="manual"].active {
     border-color: var(--warning-yellow);
-    color: var(--warning-yellow);
-    box-shadow: 0 0 0 1px var(--warning-yellow);
+    box-shadow: 0 0 0 1px var(--warning-yellow), var(--shadow-sm);
+}
+
+.filter-toggle[data-filter="manual"].active .filter-toggle-switch {
+    background: var(--warning-yellow);
 }
 
 .filter-toggle[data-filter="manual"].active .filter-count {
     background: var(--light-warning);
-    color: var(--warning-yellow);
-}
-
-.filter-toggle[data-filter="manual"].active::after {
     color: var(--warning-yellow);
 }
 
@@ -902,6 +907,7 @@ body {
 .edit-edi:hover { background: var(--light-warning); color: var(--warning-yellow); }
 .resend-edi:hover { background: var(--light-success); color: var(--success-green); }
 .retry-now:hover { background: var(--light-orange); color: var(--orange); }
+.dismiss-item:hover { background: var(--light-error); color: var(--error-red); }
 .collapse-toggle:hover { background: var(--gray-200); color: var(--gray-700); }
 
 /* Typography */
@@ -1400,14 +1406,43 @@ h1 {
         padding: 1.5rem;
         max-width: none;
     }
+    /* Sidebar filters responsive adjustments */
+    .sidebar-filters {
+        padding: 0.75rem 1rem;
+    }
     
-    /* Adjust filter buttons for mobile */
-    .filter-buttons {
-        gap: 0.375rem;
+    .filter-section {
+        gap: 0.5rem;
+    }
+    
+    .filter-label {
+        font-size: 0.8125rem;
     }
     
     .filter-toggle {
-        padding: 0.4rem 0.6rem;
+        padding: 0.5rem;
+        gap: 0.5rem;
+    }
+    
+    .filter-toggle-switch {
+        width: 32px;
+        height: 16px;
+        border-radius: 8px;
+    }
+    
+    .filter-toggle-slider {
+        width: 12px;
+        height: 12px;
+        border-radius: 6px;
+        top: 2px;
+        left: 2px;
+    }
+    
+    .filter-toggle.active .filter-toggle-slider {
+        transform: translateX(16px);
+    }
+    
+    .filter-toggle-label {
         font-size: 0.8125rem;
     }
     
